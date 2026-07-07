@@ -113,28 +113,45 @@ python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --min-vol
 ## New keyword candidates (going beyond GSC)
 
 GSC only proves demand for things people already searched *for this site*. To grow a validated hub with
-keywords GSC never saw (e.g. a coffee-machine model nobody has searched for yet on this site), the tool
-generates a prompt for you to paste into any free LLM chat (ChatGPT, Gemini, Claude, ...) — no paid API key
-required inside the tool itself:
+keywords GSC never saw (e.g. a coffee-machine model nobody has searched for yet on this site), an LLM has to
+suggest plausible new keywords — no heuristic can invent real brand/model/city names.
 
-```bash
-python seo_hub_finder.py sample_gsc.csv --out-dir out
-```
+### Automatic (recommended): a free Gemini API key
 
-This also creates `out/new_keyword_candidates_prompt.md`. Paste its content into a free LLM, and ask it to
-return a CSV with columns `pattern_id,candidate_query`. Save that as e.g. `new_keywords.csv`, then re-run:
+1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with any Google account,
+   click "Create API key". No credit card needed for the free tier.
+2. Set it as an environment variable before running the CLI:
 
-```bash
-python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --new-keywords-csv new_keywords.csv --out-dir out
-```
+   ```bash
+   export GEMINI_API_KEY=your-key-here   # PowerShell: $env:GEMINI_API_KEY = "your-key-here"
+   python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --out-dir out
+   ```
+
+   For the Streamlit app, add it under Streamlit Cloud → your app → Settings → Secrets:
+   `GEMINI_API_KEY = "your-key-here"`.
+3. That's it — every run now automatically asks Gemini for new keyword ideas per validated pattern and
+   checks them against Google Trends, with zero extra uploads. If the default model
+   (`gemini-2.0-flash`, override with `--ai-model`) has been renamed by Google, this step is skipped
+   silently rather than breaking the run — check [aistudio.google.com](https://aistudio.google.com) for the
+   current free-tier model name if that happens.
+
+### Manual fallback (no API key)
+
+Without `GEMINI_API_KEY`, the tool instead writes `out/new_keyword_candidates_prompt.md`. Paste its content
+into any free LLM chat (ChatGPT, Gemini, Claude, ...), ask it to return a CSV with columns
+`pattern_id,candidate_query`, save that as e.g. `new_keywords.csv`, then re-run with
+`--new-keywords-csv new_keywords.csv`. Both paths converge on the same Trends check below.
+
+### The Trends check (applies either way)
 
 The tool checks each candidate against Google Trends, always alongside the pattern's best-performing real
 GSC query as an anchor — so instead of an unlabeled 0–100 number, you get "about as searched as a keyword we
 know gets real traffic here" (`trends_status = confirmed`). Only `confirmed` candidates are added to
 `content_hub_plan.csv`. `no_signal` doesn't mean zero real demand — Trends often can't detect long-tail
-terms — check those manually via Keyword Planner if you still want to pursue them. Results for every
-candidate (confirmed or not) are in `new_keyword_candidates_checked.csv`. By default at most 25 candidates
-are checked per run (`--max-trends-candidates`) to keep runtime bounded on free hosting.
+terms, especially over a smoothed 12-month window — check those manually via Keyword Planner if you still
+want to pursue them. Results for every candidate (confirmed or not) are in
+`new_keyword_candidates_checked.csv`. By default at most 25 candidates are checked per run
+(`--max-trends-candidates`) to keep runtime bounded on free hosting.
 
 ## Output logic
 

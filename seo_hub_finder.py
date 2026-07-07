@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import math
+import os
 import re
 import time
 import unicodedata
+import urllib.error
+import urllib.request
 import zipfile
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
@@ -618,15 +622,17 @@ def build_hub_plan(
     return pd.DataFrame(rows).sort_values(["total_search_volume", "article_count"], ascending=[False, False])
 
 # ---------------------------------------------------------------------------
-# New-keyword candidates: AI brainstorm prompt + free Trends relevance check
+# New-keyword candidates: AI brainstorm + free Trends relevance check
 #
 # GSC only proves demand for queries that already rank. To grow a validated hub
 # beyond what's already in GSC (e.g. a coffee-machine model that was never
 # searched on this site yet), an LLM has to suggest plausible new keywords —
-# no heuristic can invent real brand/model/city names. That step happens
-# outside this tool (paste the generated prompt into any free LLM chat) to
-# avoid requiring a paid API key. This tool only checks whether Google Trends
-# shows any real interest in what comes back, before it's added to a hub.
+# no heuristic can invent real brand/model/city names. If a free Gemini API
+# key is configured (GEMINI_API_KEY), this happens automatically in the
+# background on every run. Without a key, the tool falls back to writing a
+# prompt file you can paste into any free LLM chat and re-import as a CSV.
+# Either way, every candidate is checked against Google Trends before it's
+# added to a hub — nothing gets added on invented demand.
 # ---------------------------------------------------------------------------
 
 NEW_KEYWORD_ALIASES: Dict[str, List[str]] = {
@@ -635,6 +641,73 @@ NEW_KEYWORD_ALIASES: Dict[str, List[str]] = {
 }
 
 MAX_TRENDS_CANDIDATES = 25
+DEFAULT_AI_MODEL = "gemini-2.0-flash"
+GEMINI_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+
+def generate_ai_keyword_candidates(
+    patterns: pd.DataFrame,
+    api_key: Optional[str] = None,
+    model: str = DEFAULT_AI_MODEL,
+    max_candidates_per_pattern: int = 8,
+) -> pd.DataFrame:
+    """Ask a free-tier LLM (Google Gemini) to suggest new keywords for each validated pattern.
+
+    Returns an empty DataFrame — not an error — whenever no key is configured or the call
+    fails for any reason (bad key, rate limit, model renamed, network issue). This step is
+    additive; the rest of the pipeline must keep working without it.
+    """
+    columns = ["pattern_id", "candidate_query"]
+    api_key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not api_key or patterns.empty:
+        return pd.DataFrame(columns=columns)
+    accepted = patterns[patterns["is_programmatic_opportunity"]]
+    if accepted.empty:
+        return pd.DataFrame(columns=columns)
+
+    prompt_lines = [
+        "You are an SEO strategist. Each pattern below is a content hub already validated by real "
+        "Google Search Console ranking data, with example queries that already rank. Suggest "
+        "additional REAL, plausible search queries that fit the same structure but are not already "
+        "in the example list. Only suggest things that plausibly exist and get searched; do not "
+        "invent fake brands, products or places.",
+        "",
+        "Respond with ONLY a JSON array, no other text, in exactly this form:",
+        '[{"pattern_id": "pattern_001", "candidates": ["...", "..."]}]',
+        f"Suggest up to {max_candidates_per_pattern} candidates per pattern.",
+        "",
+    ]
+    for _, row in accepted.iterrows():
+        prompt_lines.append(
+            f"pattern_id={row['pattern_id']} skeleton=`{row['query_skeleton']}` "
+            f"examples: {row['sample_queries']}"
+        )
+    prompt = "\n".join(prompt_lines)
+
+    url = f"{GEMINI_API_URL_TEMPLATE.format(model=model)}?key={api_key}"
+    body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
+    request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        text = payload["candidates"][0]["content"]["parts"][0]["text"]
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+        if not match:
+            return pd.DataFrame(columns=columns)
+        parsed = json.loads(match.group(0))
+    except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError):
+        return pd.DataFrame(columns=columns)
+
+    rows = []
+    for entry in parsed:
+        pattern_id = str(entry.get("pattern_id", "")).strip()
+        if not pattern_id:
+            continue
+        for candidate in entry.get("candidates", [])[:max_candidates_per_pattern]:
+            candidate_query = normalize_text(candidate)
+            if len(candidate_query) > 1:
+                rows.append({"pattern_id": pattern_id, "candidate_query": candidate_query})
+    return pd.DataFrame(rows, columns=columns).drop_duplicates()
 
 
 def write_new_keyword_prompt(patterns: pd.DataFrame, out_path: Path) -> None:
@@ -959,6 +1032,9 @@ def run_pipeline(
     trends_geo: str = "DE",
     min_trends_relative: float = 0.1,
     max_trends_candidates: int = MAX_TRENDS_CANDIDATES,
+    ai_api_key: Optional[str] = None,
+    ai_model: str = DEFAULT_AI_MODEL,
+    ai_candidates_per_pattern: int = 8,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     gsc = normalize_gsc(gsc_csv)
     patterns, memberships = discover_patterns(
@@ -974,7 +1050,11 @@ def run_pipeline(
     queue = build_volume_queue(memberships)
     volume = normalize_volume(volume_csv) if volume_csv else pd.DataFrame(columns=["query", "search_volume", "competition", "cpc"])
     opportunities = merge_volume(memberships, volume, min_volume)
-    new_keywords = normalize_new_keywords(new_keywords_csv)
+    ai_candidates = generate_ai_keyword_candidates(
+        patterns, api_key=ai_api_key, model=ai_model, max_candidates_per_pattern=ai_candidates_per_pattern,
+    )
+    manual_candidates = normalize_new_keywords(new_keywords_csv)
+    new_keywords = pd.concat([ai_candidates, manual_candidates], ignore_index=True).drop_duplicates()
     new_keywords_checked = check_new_keyword_relevance(
         new_keywords, memberships, geo=trends_geo, min_relative_to_anchor=min_trends_relative,
         max_candidates=max_trends_candidates,
@@ -1003,6 +1083,12 @@ def main() -> None:
     parser.add_argument("--trends-geo", default="DE", help="Google Trends region code for the new-keyword check")
     parser.add_argument("--min-trends-relative", type=float, default=0.1, help="Min candidate/anchor Trends ratio to confirm a new keyword")
     parser.add_argument("--max-trends-candidates", type=int, default=MAX_TRENDS_CANDIDATES, help="Cap on candidates checked against Trends per run")
+    parser.add_argument(
+        "--ai-api-key", default=None,
+        help="Free Gemini API key for automatic new-keyword suggestions (defaults to the GEMINI_API_KEY env var)",
+    )
+    parser.add_argument("--ai-model", default=DEFAULT_AI_MODEL, help="Gemini model name for new-keyword suggestions")
+    parser.add_argument("--ai-candidates-per-pattern", type=int, default=8, help="Max AI-suggested candidates per pattern")
     args = parser.parse_args()
 
     gsc_path = Path(args.gsc_csv)
@@ -1026,6 +1112,9 @@ def main() -> None:
             trends_geo=args.trends_geo,
             min_trends_relative=args.min_trends_relative,
             max_trends_candidates=args.max_trends_candidates,
+            ai_api_key=args.ai_api_key,
+            ai_model=args.ai_model,
+            ai_candidates_per_pattern=args.ai_candidates_per_pattern,
         )
     except ValueError as exc:
         print(f"Error: {exc}")
@@ -1043,6 +1132,9 @@ def main() -> None:
         truncated = new_keywords_checked.attrs.get("truncated_candidates", 0)
         if truncated:
             print(f"Note: {truncated} candidate keyword(s) skipped (over the --max-trends-candidates cap).")
+    elif not (args.ai_api_key or os.environ.get("GEMINI_API_KEY")):
+        print("Note: no GEMINI_API_KEY set — automatic new-keyword suggestions were skipped. "
+              "See new_keyword_candidates_prompt.md for the manual fallback.")
     print(f"Content hubs: {len(hub_plan)}")
     for note in data_quality_notes(patterns):
         print(f"Note: {note}")

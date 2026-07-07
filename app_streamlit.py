@@ -1,9 +1,20 @@
+import os
 import tempfile
 from pathlib import Path
 
 import streamlit as st
 
 from seo_hub_finder import MAX_TRENDS_CANDIDATES, data_quality_notes, run_pipeline
+
+
+def get_gemini_api_key():
+    try:
+        return st.secrets["GEMINI_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        return os.environ.get("GEMINI_API_KEY")
+
+
+GEMINI_API_KEY = get_gemini_api_key()
 
 st.set_page_config(page_title="SEO Hub Finder", layout="wide")
 st.title("SEO Hub Finder — Programmatic SEO Discovery")
@@ -60,19 +71,31 @@ else:
     gsc_path_fixed = None
     volume_path_fixed = None
 
-with st.expander("Optional: found new keyword ideas? Check them here"):
-    st.write(
-        "After a first run, copy the generated prompt below into any free LLM chat (ChatGPT, Gemini, "
-        "Claude, ...), then upload its CSV reply here and run again. Candidates get checked against "
-        "Google Trends before they're added to a hub — nothing gets added on invented demand."
+new_keywords_file = None
+if GEMINI_API_KEY:
+    st.caption(
+        "New keyword ideas beyond GSC are suggested automatically (Gemini) and checked against "
+        "Google Trends on every run — no extra steps needed."
     )
-    if st.session_state.get("new_keyword_prompt"):
-        st.code(st.session_state["new_keyword_prompt"], language="markdown")
-    else:
-        st.caption("Run the tool once first to generate this prompt from your validated patterns.")
-    new_keywords_file = st.file_uploader(
-        "Upload new keyword candidates CSV (pattern_id, candidate_query)", type=["csv"], key="new_keywords_upload"
-    )
+    with st.expander("Also add your own keyword ideas manually (optional)"):
+        new_keywords_file = st.file_uploader(
+            "Upload additional candidates CSV (pattern_id, candidate_query)", type=["csv"], key="new_keywords_upload"
+        )
+else:
+    with st.expander("Optional: found new keyword ideas? Check them here"):
+        st.write(
+            "No `GEMINI_API_KEY` configured, so this step isn't automatic here. Copy the generated "
+            "prompt below into any free LLM chat (ChatGPT, Gemini, Claude, ...), then upload its CSV "
+            "reply and run again. Candidates get checked against Google Trends before they're added "
+            "to a hub — nothing gets added on invented demand."
+        )
+        if st.session_state.get("new_keyword_prompt"):
+            st.code(st.session_state["new_keyword_prompt"], language="markdown")
+        else:
+            st.caption("Run the tool once first to generate this prompt from your validated patterns.")
+        new_keywords_file = st.file_uploader(
+            "Upload new keyword candidates CSV (pattern_id, candidate_query)", type=["csv"], key="new_keywords_upload"
+        )
 
 run_clicked = st.button("Run SEO Hub Finder", type="primary")
 
@@ -118,6 +141,7 @@ if run_clicked:
                 trends_geo=trends_geo,
                 min_trends_relative=min_trends_relative,
                 max_trends_candidates=int(max_trends_candidates),
+                ai_api_key=GEMINI_API_KEY,
             )
         except ValueError as exc:
             st.error(str(exc))
@@ -171,7 +195,10 @@ if run_clicked:
 
         st.subheader("5. New keyword candidates (Google Trends check)")
         if new_keywords_checked.empty:
-            st.caption("No candidates uploaded yet — see 'Optional: found new keyword ideas?' above.")
+            if GEMINI_API_KEY:
+                st.caption("Gemini didn't return any candidates for this run's patterns.")
+            else:
+                st.caption("No candidates yet — see the panel above to add some.")
         else:
             st.write(
                 "'confirmed' means Trends shows real relative interest vs. a GSC-proven keyword from the "
