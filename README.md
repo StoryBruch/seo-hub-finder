@@ -1,134 +1,97 @@
-# SEO Hub Finder — AI Pattern Discovery + Search Volume Gate
+# Striking Distance Finder
 
-A small, pitch-ready prototype that analyzes Google Search Console exports and finds Programmatic SEO opportunities.
+Ein kleines, sofort testbares Tool, das einen **Google-Search-Console-Export**
+analysiert und die **Striking-Distance-Keywords** herausfiltert: Suchanfragen,
+die schon knapp unter den Top-Platzierungen ranken, echtes Impressions-Volumen
+haben — und mit überschaubarem Aufwand die meisten zusätzlichen Klicks bringen.
 
-The core idea:
-
-```txt
-GSC export → automatic pattern discovery → keyword volume queue → volume CSV import → content hub plan
-```
-
-## What makes it different
-
-The user does **not** have to manually define every pattern like:
-
-- `beste X für Y`
-- `[marke] reinigen`
-- `[marke] entkalken`
-- `X rezept`
-
-Those are only examples. The tool tries to infer repeatable query structures from GSC data itself.
-
-Example:
+Das Ergebnis ist genau das: **eine sortierte Liste mit den wichtigsten Zahlen
+und einer Begründung pro Keyword.**
 
 ```txt
-delonghi magnifica entkalken
-jura e8 entkalken
-saeco xelsis entkalken
+GSC-Export → CTR-Baseline aus deinen eigenen Daten → Striking-Distance-Filter → sortierte Liste + Begründung
 ```
 
-becomes:
+## Was es besonders macht
+
+- **Eigene CTR-Baseline statt generischer Benchmarks.** Das Tool berechnet aus
+  deinen eigenen Daten, welche CTR pro Positions-Bereich normal ist. Ein Keyword,
+  das auf Platz 7 nur halb so viel geklickt wird wie deine anderen Platz-7-Seiten,
+  ist ein anderer Fall als eines mit normaler CTR — und wird als solcher benannt.
+- **Begründung ist kostenlos und ohne API-Key.** Jede Zeile bekommt eine
+  klare, aus den Zahlen abgeleitete Begründung (Position, Impressionen, CTR vs.
+  deine Baseline, geschätztes Klick-Potenzial). Keine Halluzination, sofort da.
+- **Optionaler KI-Deep-Dive.** Wer will, hinterlegt einen kostenlosen
+  Gemini-Key und lässt für die Top-Keywords eine tiefere Diagnose + konkreten
+  nächsten Schritt ergänzen (am besten mit eingefügtem Title/Meta). Das Tool
+  funktioniert vollständig auch ohne Key.
+- **Optionaler Umsatz-Hebel.** Ein Wert pro Klick verwandelt das
+  Klick-Potenzial in geschätztes Umsatz-Potenzial pro Monat.
+
+## Projektdateien
 
 ```txt
-{slot_1} entkalken
+striking_distance_finder.py   # CLI + Kernlogik
+app_streamlit.py              # Browser-Demo (Streamlit)
+sample_gsc.csv                # Beispiel-GSC-Export (Demo-Daten)
+test_striking_distance.py     # Tests (Netzwerk gemockt)
+requirements.txt              # Abhängigkeiten (nur pandas + streamlit)
 ```
 
-Then the tool checks whether this pattern has enough GSC ranking proof, slot diversity and, after the second step, confirmed search volume.
+## Eingabe: der GSC-Export
 
-## Project files
+Search Console → **Leistung → Suchergebnisse** → oben die Dimensionen
+**»Suchanfragen«** und **»Seiten«** aktivieren → **Exportieren → CSV**.
 
-```txt
-seo_hub_finder.py                # CLI + core logic
-app_streamlit.py                 # browser demo app
-sample_gsc.csv                   # sample GSC export
-sample_volume.csv                # sample search-volume export
-requirements.txt                 # dependencies
-README.md                        # this file
-VOLUME_VALIDATION_WORKFLOW.md    # exact volume validation logic
-DEPLOYMENT_GUIDE.md              # how to share as live demo
-CLAUDE_CODE_MASTER_PROMPT.md     # prompt to paste into Claude Code
+Erkannte Spalten (Deutsch und Englisch, `;`- oder `,`-getrennt, Komma-Dezimal):
+`Suchanfrage/Query`, `Seite/Page`, `Klicks/Clicks`, `Impressionen/Impressions`,
+`Position`, optional `CTR` (wird ansonsten aus Klicks/Impressionen berechnet).
+
+## Browser-Demo
+
+```bash
+pip install -r requirements.txt
+streamlit run app_streamlit.py
 ```
 
-Generated output files:
+In der App **»Demo-Daten«** wählen — der komplette Ablauf läuft ohne eigene
+Datei. Für echte Daten »GSC-CSV hochladen« wählen.
 
-```txt
-out/discovered_programmatic_patterns.csv
-out/pattern_keyword_memberships.csv
-out/existing_pages_by_pattern.csv
-out/keyword_volume_check_queue.csv
-out/programmatic_opportunities.csv
-out/new_keyword_candidates_prompt.md
-out/new_keyword_candidates_checked.csv
-out/content_hub_plan.csv
-out/article_plan_per_keyword.csv
-out/article_templates_and_linking.md
-out/hero_images/<hub>.jpg
-out/ai_pattern_review_prompt.md
-out/seo_hub_finder_report.html
-out/seo_hub_finder_outputs.zip
+## CLI
+
+```bash
+python striking_distance_finder.py sample_gsc.csv
+python striking_distance_finder.py sample_gsc.csv \
+    --pos-min 4 --pos-max 20 --min-impressions 30 \
+    --brand-terms cremola --value-per-click 2.50 --out opportunities.csv
 ```
 
-Every volume-confirmed hub also gets:
+## Optionaler KI-Deep-Dive (kostenlos)
 
-- an intent-specific **German article template** (H1/meta/intro templates with literal `{slot_n}`
-  placeholders, H2/H3 outline, FAQ questions, schema.org types, word-count target, E-E-A-T checklist) —
-  AI-refined via the free Gemini tier when `GEMINI_API_KEY` is set, otherwise from built-in static
-  intent profiles;
-- a **photorealistic 16:9 hero image** (free Gemini image model when a key is set; Pollinations.ai as
-  keyless fallback — anonymous fallback images may carry a small watermark; disable with
-  `--no-hero-images`). The ready-to-paste image prompt is always written to `content_hub_plan.csv`;
-- a spoke-level editorial plan (`article_plan_per_keyword.csv`): one row per article with the
-  slot-filled H1/meta/URL, including Trends-confirmed AI keyword suggestions as new-article rows.
-
-See `VOLUME_VALIDATION_WORKFLOW.md` for the full search-volume and new-keyword-candidate workflow.
+1. Auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey) mit einem
+   Google-Konto anmelden → **Create API key** (keine Kreditkarte für den Free Tier).
+2. In Streamlit Cloud: App → **Settings → Secrets** → Zeile einfügen:
+   `GEMINI_API_KEY = "dein-key"`. Lokal: Umgebungsvariable `GEMINI_API_KEY` setzen.
+3. Der Tab **»KI-Deep-Dive«** analysiert dann die Top-Keywords. Standardmodell
+   `gemini-3.5-flash` mit automatischer Fallback-Kette (`gemini-2.5-flash` /
+   `gemini-2.5-flash-lite`). Der Key geht nur in den Request-Header, nie in eine URL.
 
 ## Tests
 
 ```bash
-python -m unittest test_seo_hub_finder -v
+python -m unittest test_striking_distance -v
 ```
 
-(dev-only; all network calls are mocked)
+(Alle Netzwerkaufrufe sind gemockt — die Tests brauchen kein Internet und keinen Key.)
 
-## Quick local test
+## Kurz erklärt: die Logik
 
-```bash
-pip install -r requirements.txt
-python seo_hub_finder.py sample_gsc.csv --out-dir out_no_volume
-```
-
-This creates a keyword queue for search-volume validation.
-
-## Full local test with volume validation
-
-```bash
-python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --out-dir out_with_volume
-```
-
-Now the tool creates final opportunities and a content hub plan.
-
-## Streamlit demo
-
-```bash
-streamlit run app_streamlit.py
-```
-
-In the app, choose:
-
-```txt
-Try demo data
-```
-
-This lets a company test the complete flow without preparing any files.
-
-## Pitch-friendly usage
-
-For a hiring/application pitch, the easiest setup is:
-
-1. Deploy `app_streamlit.py` as a Streamlit app.
-2. Include a button/mode: `Try demo data`.
-3. Link the generated sample HTML report.
-4. Include the GitHub repo or ZIP as proof.
-5. Add a 60-90 second Loom walkthrough.
-
-The company should not need Claude Code to test the tool. Claude Code is only useful to rebuild or extend the prototype.
+1. **CTR-Baseline** pro Positions-Bucket (`1`, `2`, `3`, `4–5`, `6–8`, `9–11`,
+   `12–15`, `16–20`) aus den eigenen Daten; ist ein Bucket zu dünn besetzt, greift
+   ein Richtwert (klar gekennzeichnet). Marken-Keywords werden herausgerechnet.
+2. **Filter**: Position im gewählten Bereich (Standard 4–20) und genügend
+   Impressionen (Standard ≥ 30).
+3. **Score**: geschätztes zusätzliches Klick-Potenzial pro Monat, wenn das
+   Keyword auf Top-3 gehoben wird (`Impressionen × Top-3-CTR − aktuelle Klicks`).
+4. **Unterperformer-Flag**: liegt die CTR deutlich unter der Baseline für die
+   Position, wird das in der Begründung benannt (Hebel = Snippet/Title statt Ranking).

@@ -1,57 +1,37 @@
 # Deployment Guide
 
-## Best option for a hiring pitch
+## Ziel: ein Link, kein Setup beim Empfänger
 
-Use a Streamlit demo link.
+Der Empfänger klickt einen Streamlit-Link, wählt **»Demo-Daten«** und sieht sofort
+das komplette Ergebnis — keine Installation, kein API-Key nötig.
 
-The company should be able to click one link, choose `Try demo data`, and see the full workflow immediately.
-
-## Local test
+## Lokaler Test
 
 ```bash
-git clone <your-repo-url>
-cd seo-hub-finder
 pip install -r requirements.txt
 streamlit run app_streamlit.py
 ```
 
-## Streamlit Cloud deployment
+## Streamlit Community Cloud
 
-1. Create a GitHub repo.
-2. Add all project files.
-3. Go to Streamlit Community Cloud.
-4. Create a new app from the GitHub repo.
-5. Main file path:
+1. Repo auf GitHub pushen.
+2. Auf [share.streamlit.io](https://share.streamlit.io) einloggen → **New app**.
+3. Repo auswählen, Branch `master`, Main file: `app_streamlit.py`.
+4. **Deploy**. Nach jedem Push zieht Streamlit die neue Version automatisch.
+5. Den App-Link teilen.
 
-```txt
-app_streamlit.py
+## Optional: KI-Deep-Dive aktivieren
+
+App → **Settings → Secrets** → Zeile einfügen:
+
+```toml
+GEMINI_API_KEY = "dein-key"
 ```
 
-6. Share the app link in your application.
+Key kostenlos auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+Ohne Key funktioniert alles außer dem optionalen KI-Tab.
 
-## What to send in the application
+## Braucht der Empfänger Claude Code?
 
-Recommended package:
-
-```txt
-1. Live demo link
-2. Sample HTML report
-3. GitHub repo or ZIP
-4. 60-90 second Loom video
-```
-
-Suggested pitch line:
-
-```txt
-I built a small prototype that analyzes GSC exports, automatically detects repeatable Programmatic SEO patterns, validates demand through a search-volume CSV, and turns the result into content hubs, article templates and internal linking plans.
-```
-
-## Do they need Claude Code?
-
-No.
-
-Claude Code is only for rebuilding or extending the project. Stakeholders should test via:
-
-- Streamlit demo link, or
-- local Python run, or
-- sample HTML report.
+Nein. Claude Code ist nur zum Weiterbauen/Erweitern des Prototyps da. Zum Testen
+reicht der Streamlit-Link oder ein lokaler `streamlit run`.

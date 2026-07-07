@@ -1,31 +1,56 @@
-query,page,clicks,impressions,position
-jura e8 entkalken,https://example.com/jura-e8-entkalken/,120,2400,3.1
-delonghi magnifica entkalken,https://example.com/delonghi-magnifica-entkalken/,95,2100,4.2
-saeco xelsis entkalken,https://example.com/saeco-xelsis-entkalken/,38,900,7.4
-philips 5400 entkalken,https://example.com/philips-5400-entkalken/,42,880,8.1
-siemens eq6 entkalken,https://example.com/siemens-eq6-entkalken/,55,1200,5.9
-jura e8 reinigen,https://example.com/jura-e8-reinigen/,66,1300,4.7
-delonghi magnifica reinigen,https://example.com/delonghi-magnifica-reinigen/,58,1100,6.2
-saeco xelsis reinigen,https://example.com/saeco-xelsis-reinigen/,27,640,9.1
-philips 5400 reinigen,https://example.com/philips-5400-reinigen/,30,720,8.6
-siemens eq6 reinigen,https://example.com/siemens-eq6-reinigen/,20,520,11.8
-flat white rezept,https://example.com/flat-white-rezept/,90,1600,3.8
-cold brew rezept,https://example.com/cold-brew-rezept/,82,1550,4.1
-espresso tonic rezept,https://example.com/espresso-tonic-rezept/,35,800,7.3
-affogato rezept,https://example.com/affogato-rezept/,44,980,6.8
-cappuccino rezept,https://example.com/cappuccino-rezept/,140,2700,2.9
-beste kaffeebohnen für vollautomat,https://example.com/beste-kaffeebohnen-fuer-vollautomat/,210,4200,2.4
-beste bohnen für cappuccino,https://example.com/beste-bohnen-fuer-cappuccino/,110,2300,4.2
-beste kaffee für latte macchiato,https://example.com/beste-kaffee-fuer-latte-macchiato/,92,2100,5.1
-beste kaffeebohnen für espresso,https://example.com/beste-kaffeebohnen-fuer-espresso/,125,2600,3.7
-beste kaffee für siebträger,https://example.com/beste-kaffee-fuer-siebtraeger/,74,1700,6.4
-alternative zu jura reinigungstabletten,https://example.com/jura-reinigungstabletten-alternative/,18,480,8.9
-alternative zu delonghi reinigungstabletten,https://example.com/delonghi-reinigungstabletten-alternative/,14,390,9.4
-alternative zu siemens reinigungstabletten,https://example.com/siemens-reinigungstabletten-alternative/,9,280,12.5
-alternative zu philips reinigungstabletten,https://example.com/philips-reinigungstabletten-alternative/,12,330,10.2
-kaffeevollautomat test,https://example.com/kaffeevollautomat-test/,300,8000,1.9
-kaffeevollautomat mit milchsystem,https://example.com/kaffeevollautomat-milchsystem/,80,3000,6.9
-kaffee bitter ursache,https://example.com/kaffee-bitter-ursache/,15,350,13.2
-latte macchiato glas groesse,https://example.com/latte-macchiato-glas/,28,700,9.7
-barista kurs online,https://example.com/barista-kurs/,4,150,24.0
-random brand coupon,https://example.com/coupons/,1,90,41.0
+Query,Page,Clicks,Impressions,CTR,Position
+kaffeevollautomat test,https://kaffee-guru.example/ratgeber/kaffeevollautomat-test,40,3200,1.25%,6.4
+espressomaschine mit mahlwerk,https://kaffee-guru.example/espressomaschine-mahlwerk,30,2100,1.43%,8.1
+milchaufschäumer test,https://kaffee-guru.example/milchaufschaeumer-test,92,1800,5.11%,5.2
+kaffeebohnen test,https://kaffee-guru.example/kaffeebohnen-test,34,2600,1.31%,7.0
+beste kaffeemühle,https://kaffee-guru.example/kaffeemuehle-vergleich,18,1500,1.20%,9.3
+kaffee abo,https://kaffee-guru.example/kaffee-abo,70,1200,5.83%,4.7
+entkalker kaffeevollautomat,https://kaffee-guru.example/entkalker-kaffeevollautomat,8,900,0.89%,11.5
+siebträgermaschine test,https://kaffee-guru.example/siebtraeger-test,96,2400,4.00%,6.8
+kaffeevollautomat günstig,https://kaffee-guru.example/kaffeevollautomat-guenstig,12,1400,0.86%,12.9
+filterkaffeemaschine test,https://kaffee-guru.example/filterkaffeemaschine-test,42,1700,2.47%,5.9
+kaffeevollautomat mit app,https://kaffee-guru.example/kaffeevollautomat-app,14,1100,1.27%,7.6
+kaffeepadmaschine test,https://kaffee-guru.example/kaffeepadmaschine-test,22,1300,1.69%,8.8
+kaffeemühle elektrisch,https://kaffee-guru.example/kaffeemuehle-elektrisch,26,980,2.65%,6.2
+cold brew maker,https://kaffee-guru.example/cold-brew-maker,9,820,1.10%,10.4
+kaffeevollautomat reinigen,https://kaffee-guru.example/kaffeevollautomat-reinigen,55,2000,2.75%,7.3
+espresso tamper,https://kaffee-guru.example/espresso-tamper,17,640,2.66%,9.1
+kaffeebecher to go test,https://kaffee-guru.example/kaffeebecher-to-go,11,760,1.45%,13.2
+french press test,https://kaffee-guru.example/french-press-test,61,1650,3.70%,5.6
+kaffeevollautomat für büro,https://kaffee-guru.example/kaffeevollautomat-buero,7,540,1.30%,14.1
+milchaufschäumer elektrisch,https://kaffee-guru.example/milchaufschaeumer-elektrisch,29,1150,2.52%,8.4
+kaffeevollautomat,https://kaffee-guru.example/kaffeevollautomat,940,3400,27.65%,1.3
+espressomaschine,https://kaffee-guru.example/espressomaschine,610,2600,23.46%,1.9
+kaffeemühle,https://kaffee-guru.example/kaffeemuehle,420,2100,20.00%,2.4
+french press,https://kaffee-guru.example/french-press,380,1800,21.11%,2.1
+milchaufschäumer,https://kaffee-guru.example/milchaufschaeumer,510,2300,22.17%,1.6
+kaffeebohnen kaufen,https://kaffee-guru.example/kaffeebohnen-kaufen,210,1400,15.00%,2.8
+kaffeepadmaschine,https://kaffee-guru.example/kaffeepadmaschine,150,1200,12.50%,3.0
+cold brew,https://kaffee-guru.example/cold-brew,175,1300,13.46%,2.6
+kaffee test,https://kaffee-guru.example/kaffee-test,260,1600,16.25%,2.2
+kaffeekapseln,https://kaffee-guru.example/kaffeekapseln,330,1900,17.37%,1.8
+kaffeevollautomat mit festwasseranschluss und milchsystem,https://kaffee-guru.example/nische-1,0,14,0.00%,17.5
+espressomaschine zweikreiser handhebel,https://kaffee-guru.example/nische-2,0,9,0.00%,19.1
+kaffeemühle handbetrieb reise,https://kaffee-guru.example/nische-3,1,22,4.55%,16.4
+milchaufschäumer induktion test,https://kaffee-guru.example/nische-4,0,7,0.00%,18.8
+kaffeebohnen entkoffeiniert bio fair,https://kaffee-guru.example/nische-5,0,11,0.00%,15.9
+french press edelstahl doppelwandig,https://kaffee-guru.example/nische-6,0,6,0.00%,20.0
+cold brew flasche glas,https://kaffee-guru.example/nische-7,1,19,5.26%,17.2
+kaffeepad nachhaltig kompostierbar,https://kaffee-guru.example/nische-8,0,8,0.00%,18.3
+kaffee rezepte,https://kaffee-guru.example/blog/kaffee-rezepte,120,900,13.33%,3.4
+latte macchiato rezept,https://kaffee-guru.example/blog/latte-macchiato,88,700,12.57%,4.2
+wie viel koffein hat kaffee,https://kaffee-guru.example/blog/koffein-kaffee,64,1400,4.57%,6.7
+kaffee geschichte,https://kaffee-guru.example/blog/kaffee-geschichte,12,300,4.00%,12.2
+espresso vs lungo,https://kaffee-guru.example/blog/espresso-lungo,33,520,6.35%,7.9
+kaffee gesund,https://kaffee-guru.example/blog/kaffee-gesund,210,2200,9.55%,5.1
+kaffeefleck entfernen,https://kaffee-guru.example/blog/kaffeefleck,45,610,7.38%,8.6
+barista kurs,https://kaffee-guru.example/blog/barista-kurs,19,410,4.63%,10.9
+kaffeesatz düngen,https://kaffee-guru.example/blog/kaffeesatz-duengen,130,1500,8.67%,4.4
+cappuccino kalorien,https://kaffee-guru.example/blog/cappuccino-kalorien,27,380,7.11%,9.7
+kaffee haltbarkeit,https://kaffee-guru.example/blog/kaffee-haltbarkeit,8,210,3.81%,13.8
+wasserfilter kaffeevollautomat,https://kaffee-guru.example/wasserfilter,24,720,3.33%,8.2
+cremola kaffeevollautomat,https://kaffee-guru.example/marken/cremola,300,900,33.33%,1.2
+cremola espressomaschine,https://kaffee-guru.example/marken/cremola-espresso,180,560,32.14%,1.5
+cremola test,https://kaffee-guru.example/marken/cremola-test,140,480,29.17%,2.0
+cremola erfahrungen,https://kaffee-guru.example/marken/cremola-erfahrungen,90,340,26.47%,2.7
+cremola ersatzteile,https://kaffee-guru.example/marken/cremola-ersatzteile,60,260,23.08%,3.3
