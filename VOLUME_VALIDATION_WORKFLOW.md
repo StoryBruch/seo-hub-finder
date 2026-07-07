@@ -28,8 +28,11 @@ absolute monthly search volume at no cost — you just need a free Google Ads ac
 spend required). Under Tools → Keyword Planner → "Get search volume and forecasts", paste the keywords from
 `keyword_volume_check_queue.csv`, then export the results as CSV. Sistrix/Ahrefs/Semrush/Ubersuggest are paid
 tools (or very limited free tiers) and are only listed here as alternatives if you already have access to one.
-Google Trends is intentionally not used as a substitute: it only returns a relative interest score (0–100),
-not an absolute search volume, so it can't be compared against the `--min-volume` threshold.
+
+This queue only ever contains keywords that **already rank in GSC**. It is intentionally *not* checked via
+Google Trends, because Trends only returns a relative 0–100 score per request, not an absolute number, so it
+can't be compared against an absolute `--min-volume` threshold. For genuinely **new** keyword ideas that are
+not in GSC at all, see "New keyword candidates" below — that's a separate, automatic, Trends-based check.
 
 ## Two-step workflow
 
@@ -107,6 +110,32 @@ You can change it:
 python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --min-volume 50 --out-dir out_with_volume
 ```
 
+## New keyword candidates (going beyond GSC)
+
+GSC only proves demand for things people already searched *for this site*. To grow a validated hub with
+keywords GSC never saw (e.g. a coffee-machine model nobody has searched for yet on this site), the tool
+generates a prompt for you to paste into any free LLM chat (ChatGPT, Gemini, Claude, ...) — no paid API key
+required inside the tool itself:
+
+```bash
+python seo_hub_finder.py sample_gsc.csv --out-dir out
+```
+
+This also creates `out/new_keyword_candidates_prompt.md`. Paste its content into a free LLM, and ask it to
+return a CSV with columns `pattern_id,candidate_query`. Save that as e.g. `new_keywords.csv`, then re-run:
+
+```bash
+python seo_hub_finder.py sample_gsc.csv --volume-csv sample_volume.csv --new-keywords-csv new_keywords.csv --out-dir out
+```
+
+The tool checks each candidate against Google Trends, always alongside the pattern's best-performing real
+GSC query as an anchor — so instead of an unlabeled 0–100 number, you get "about as searched as a keyword we
+know gets real traffic here" (`trends_status = confirmed`). Only `confirmed` candidates are added to
+`content_hub_plan.csv`. `no_signal` doesn't mean zero real demand — Trends often can't detect long-tail
+terms — check those manually via Keyword Planner if you still want to pursue them. Results for every
+candidate (confirmed or not) are in `new_keyword_candidates_checked.csv`. By default at most 25 candidates
+are checked per run (`--max-trends-candidates`) to keep runtime bounded on free hosting.
+
 ## Output logic
 
 The final report separates:
@@ -114,16 +143,26 @@ The final report separates:
 1. `discovered_programmatic_patterns.csv`
    - Pattern candidates from GSC data.
 
-2. `keyword_volume_check_queue.csv`
+2. `existing_pages_by_pattern.csv`
+   - Query variants already ranking the *same* URL, grouped per pattern — proof the pattern is real,
+     not a list of new opportunities.
+
+3. `keyword_volume_check_queue.csv`
    - Keywords that need external search-volume validation.
 
-3. `programmatic_opportunities.csv`
+4. `programmatic_opportunities.csv`
    - Keyword-level results after volume import.
 
-4. `content_hub_plan.csv`
-   - Only patterns with volume-confirmed opportunities.
+5. `new_keyword_candidates_prompt.md`
+   - Paste this into a free LLM to brainstorm new keyword ideas beyond GSC.
 
-5. `article_templates_and_linking.md`
+6. `new_keyword_candidates_checked.csv`
+   - Those ideas (if re-imported), each checked against Google Trends.
+
+7. `content_hub_plan.csv`
+   - Only patterns with volume-confirmed opportunities, plus any Trends-confirmed new keywords.
+
+8. `article_templates_and_linking.md`
    - Hub structure, article template and internal linking strategy.
 
 ## Why this is important

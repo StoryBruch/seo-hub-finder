@@ -7,6 +7,7 @@
 **Article title template:** X rezept: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** cappuccino rezept; cold brew rezept; flat white rezept; affogato rezept; espresso tonic rezept
 **Total search volume:** 17120
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -24,6 +25,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** X für Y: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** beste kaffeebohnen für vollautomat; beste kaffeebohnen für espresso; beste kaffee für siebträger; beste bohnen für cappuccino; beste kaffee für latte macchiato
 **Total search volume:** 6770
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -41,6 +43,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** X entkalken: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** delonghi magnifica entkalken; jura e8 entkalken; siemens eq6 entkalken; philips 5400 entkalken; saeco xelsis entkalken
 **Total search volume:** 6290
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -58,6 +61,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** X reinigen: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** jura e8 reinigen; delonghi magnifica reinigen; philips 5400 reinigen; saeco xelsis reinigen
 **Total search volume:** 3100
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -75,6 +79,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** Alternative X: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten
 **Total search volume:** 470
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -92,6 +97,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** X reinigungstabletten: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten
 **Total search volume:** 470
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA
@@ -109,6 +115,7 @@ Human/AI review required: thin content, cannibalization, duplicated intent, miss
 **Article title template:** X zu Y: Anleitung, Empfehlungen & häufige Fragen
 **Validated article candidates:** alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten
 **Total search volume:** 470
+**AI-suggested candidates confirmed via Trends:** (none)
 
 ### Recommended article structure
 Kurzantwort / Intent Match → Problem oder Use Case → konkrete Anleitung oder Empfehlung → Varianten / Entscheidungskriterien → häufige Fehler → FAQ → interne Links + CTA

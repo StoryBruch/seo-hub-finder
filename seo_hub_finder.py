@@ -15,6 +15,7 @@ import argparse
 import html
 import math
 import re
+import time
 import unicodedata
 import zipfile
 from collections import Counter, defaultdict
@@ -75,6 +76,7 @@ class PatternCandidate:
     query_skeleton: str
     query_count: int
     slot_diversity: int
+    distinct_url_count: int
     top10_count: int
     total_clicks: float
     total_impressions: float
@@ -442,6 +444,7 @@ def discover_patterns(
         slot_values = {normalize_text(slot) for item in items for slot in item["slots"] if normalize_text(slot)}
         query_count = len(items)
         slot_diversity = len(slot_values)
+        distinct_url_count = len({item["page"] for item in items if item["page"]})
         top10_count = sum(1 for item in items if item["position"] <= top_position) if has_position else 0
         total_clicks = sum(item["clicks"] for item in items)
         total_impressions = sum(item["impressions"] for item in items)
@@ -464,6 +467,7 @@ def discover_patterns(
             query_skeleton=skeleton,
             query_count=query_count,
             slot_diversity=slot_diversity,
+            distinct_url_count=distinct_url_count,
             top10_count=top10_count,
             total_clicks=round(total_clicks, 2),
             total_impressions=round(total_impressions, 2),
@@ -509,6 +513,37 @@ def discover_patterns(
     patterns.attrs["truncated_rows"] = gsc.attrs.get("truncated_rows", 0)
     return patterns, memberships
 
+def build_existing_coverage(patterns: pd.DataFrame, memberships: pd.DataFrame) -> pd.DataFrame:
+    """Group already-ranking queries by the URL that already ranks for them.
+
+    Query variants like "delonghi entkalken" and "delonghi entkalkung" often already
+    rank the same existing page. Without this, they'd look like separate opportunities
+    even though the site already covers that need with one article.
+    """
+    columns = [
+        "pattern_id", "hub_label", "current_url", "query_variants", "variant_count",
+        "total_clicks", "total_impressions",
+    ]
+    if memberships.empty or patterns.empty:
+        return pd.DataFrame(columns=columns)
+    accepted_ids = set(patterns.loc[patterns["is_programmatic_opportunity"], "pattern_id"])
+    hub_labels = patterns.set_index("pattern_id")["hub_label"].to_dict()
+    scoped = memberships[memberships["pattern_id"].isin(accepted_ids) & (memberships["current_url"].str.len() > 0)]
+    if scoped.empty:
+        return pd.DataFrame(columns=columns)
+    rows = []
+    for (pattern_id, url), group in scoped.groupby(["pattern_id", "current_url"]):
+        rows.append({
+            "pattern_id": pattern_id,
+            "hub_label": hub_labels.get(pattern_id, ""),
+            "current_url": url,
+            "query_variants": "; ".join(sorted(group["query"].unique())),
+            "variant_count": int(group["query"].nunique()),
+            "total_clicks": round(float(group["clicks"].sum()), 2),
+            "total_impressions": round(float(group["impressions"].sum()), 2),
+        })
+    return pd.DataFrame(rows, columns=columns).sort_values(["pattern_id", "total_clicks"], ascending=[True, False])
+
 # ---------------------------------------------------------------------------
 # Volume validation + outputs
 # ---------------------------------------------------------------------------
@@ -537,21 +572,32 @@ def merge_volume(memberships: pd.DataFrame, volume: pd.DataFrame, min_volume: fl
     return merged.sort_values(["final_status", "search_volume", "impressions"], ascending=[True, False, False])
 
 
-def build_hub_plan(opportunities: pd.DataFrame, patterns: pd.DataFrame) -> pd.DataFrame:
+def build_hub_plan(
+    opportunities: pd.DataFrame, patterns: pd.DataFrame, new_keywords_checked: Optional[pd.DataFrame] = None
+) -> pd.DataFrame:
     columns = [
         "pattern_id", "hub_label", "hub_article_title", "hub_slug", "query_skeleton", "url_template",
-        "validated_keywords", "total_search_volume", "article_count", "article_title_template",
-        "recommended_article_structure", "internal_linking_strategy", "risks",
+        "validated_keywords", "total_search_volume", "article_count", "ai_suggested_keywords",
+        "ai_suggested_count", "article_title_template", "recommended_article_structure",
+        "internal_linking_strategy", "risks",
     ]
     if opportunities.empty or patterns.empty:
         return pd.DataFrame(columns=columns)
     confirmed = opportunities[opportunities["final_status"] == "confirmed_opportunity"].copy()
     if confirmed.empty:
         return pd.DataFrame(columns=columns)
+
+    ai_confirmed_by_pattern: Dict[str, List[str]] = {}
+    if new_keywords_checked is not None and not new_keywords_checked.empty:
+        confirmed_ai = new_keywords_checked[new_keywords_checked["trends_status"] == "confirmed"]
+        for pattern_id, sub in confirmed_ai.groupby("pattern_id"):
+            ai_confirmed_by_pattern[pattern_id] = sorted(sub["candidate_query"].unique().tolist())
+
     pattern_lookup = patterns.set_index("pattern_id").to_dict("index")
     rows = []
     for pattern_id, sub in confirmed.groupby("pattern_id"):
         p = pattern_lookup.get(pattern_id, {})
+        ai_keywords = ai_confirmed_by_pattern.get(pattern_id, [])
         rows.append({
             "pattern_id": pattern_id,
             "hub_label": p.get("hub_label", "Programmatic Hub"),
@@ -562,12 +608,169 @@ def build_hub_plan(opportunities: pd.DataFrame, patterns: pd.DataFrame) -> pd.Da
             "validated_keywords": "; ".join(sub.sort_values("search_volume", ascending=False)["query"].head(20).tolist()),
             "total_search_volume": int(sub["search_volume"].sum()),
             "article_count": int(sub["query"].nunique()),
+            "ai_suggested_keywords": "; ".join(ai_keywords),
+            "ai_suggested_count": len(ai_keywords),
             "article_title_template": p.get("article_title_template", ""),
             "recommended_article_structure": p.get("recommended_article_structure", ""),
             "internal_linking_strategy": p.get("internal_linking_strategy", ""),
             "risks": p.get("risks", ""),
         })
     return pd.DataFrame(rows).sort_values(["total_search_volume", "article_count"], ascending=[False, False])
+
+# ---------------------------------------------------------------------------
+# New-keyword candidates: AI brainstorm prompt + free Trends relevance check
+#
+# GSC only proves demand for queries that already rank. To grow a validated hub
+# beyond what's already in GSC (e.g. a coffee-machine model that was never
+# searched on this site yet), an LLM has to suggest plausible new keywords —
+# no heuristic can invent real brand/model/city names. That step happens
+# outside this tool (paste the generated prompt into any free LLM chat) to
+# avoid requiring a paid API key. This tool only checks whether Google Trends
+# shows any real interest in what comes back, before it's added to a hub.
+# ---------------------------------------------------------------------------
+
+NEW_KEYWORD_ALIASES: Dict[str, List[str]] = {
+    "pattern_id": ["pattern_id", "pattern", "hub_id"],
+    "candidate_query": ["candidate_query", "keyword", "query", "candidate"],
+}
+
+MAX_TRENDS_CANDIDATES = 25
+
+
+def write_new_keyword_prompt(patterns: pd.DataFrame, out_path: Path) -> None:
+    lines = [
+        "# New Keyword Candidate Prompt",
+        "",
+        "You are an SEO strategist. Each pattern below is a content hub already validated by real "
+        "Google Search Console ranking data, with example queries that already rank. Suggest "
+        "additional REAL, plausible search queries that fit the same structure but are not already "
+        "in the example list — e.g. other real product models, brands, or city names, whichever fits "
+        "the pattern. Only suggest things that plausibly exist and get searched; do not invent fake "
+        "brands, products or places.",
+        "",
+        "Return your answer as a CSV with exactly two columns: `pattern_id,candidate_query`. "
+        "Suggest up to 8 new candidates per pattern.",
+        "",
+    ]
+    accepted = patterns[patterns["is_programmatic_opportunity"]] if not patterns.empty else patterns
+    if accepted.empty:
+        lines.append("No validated patterns yet — run the tool on GSC data first.")
+    else:
+        for _, row in accepted.iterrows():
+            lines += [
+                f"## {row['pattern_id']} — {row['hub_label']}",
+                f"Pattern: `{row['query_skeleton']}`",
+                f"Existing example queries already ranking: {row['sample_queries']}",
+                "",
+            ]
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def normalize_new_keywords(path: Optional[Path]) -> pd.DataFrame:
+    columns = ["pattern_id", "candidate_query"]
+    if not path:
+        return pd.DataFrame(columns=columns)
+    df = normalize_columns(read_csv_safely(path), NEW_KEYWORD_ALIASES)
+    if "pattern_id" not in df.columns:
+        raise ValueError("New-keyword candidates CSV needs a pattern_id column.")
+    if "candidate_query" not in df.columns:
+        raise ValueError("New-keyword candidates CSV needs a candidate_query/keyword column.")
+    df = df.dropna(subset=["pattern_id", "candidate_query"])
+    df["pattern_id"] = df["pattern_id"].astype(str).str.strip()
+    df["candidate_query"] = df["candidate_query"].astype(str).apply(normalize_text)
+    df = df[df["candidate_query"].str.len() > 1]
+    return df[columns].drop_duplicates()
+
+
+def _trends_confirms(anchor_score: float, cand_score: float, min_relative: float) -> bool:
+    if cand_score <= 0:
+        return False
+    if anchor_score <= 0:
+        return True
+    return (cand_score / anchor_score) >= min_relative
+
+
+def check_new_keyword_relevance(
+    candidates: pd.DataFrame,
+    memberships: pd.DataFrame,
+    geo: str = "DE",
+    timeframe: str = "today 12-m",
+    min_relative_to_anchor: float = 0.1,
+    max_candidates: int = MAX_TRENDS_CANDIDATES,
+) -> pd.DataFrame:
+    """Check candidate queries against Google Trends, relative to a real GSC-proven anchor keyword.
+
+    Google Trends only returns a 0-100 relative score per request batch, not an absolute
+    volume — so each candidate is checked alongside the pattern's best-performing real GSC
+    query. That turns an unlabeled Trends number into "about as searched as a keyword we
+    know gets real traffic here", which is comparable across different candidates/patterns.
+    """
+    columns = [
+        "pattern_id", "candidate_query", "anchor_query", "trends_score_candidate",
+        "trends_score_anchor", "trends_status",
+    ]
+    if candidates.empty:
+        result = pd.DataFrame(columns=columns)
+        result.attrs["truncated_candidates"] = 0
+        return result
+
+    anchors: Dict[str, str] = {}
+    if not memberships.empty:
+        best = memberships.sort_values("clicks", ascending=False).groupby("pattern_id").first()
+        anchors = best["query"].to_dict()
+
+    truncated = max(0, len(candidates) - max_candidates)
+    work = candidates.head(max_candidates).copy()
+
+    try:
+        from pytrends.request import TrendReq
+    except ImportError:
+        result = work.copy()
+        result["anchor_query"] = result["pattern_id"].map(anchors).fillna("")
+        result["trends_score_candidate"] = 0.0
+        result["trends_score_anchor"] = 0.0
+        result["trends_status"] = "trends_unavailable"
+        result = result[columns]
+        result.attrs["truncated_candidates"] = truncated
+        return result
+
+    pytrends = TrendReq(hl="de-DE", tz=60, timeout=(5, 10))
+    rows = []
+    for _, row in work.iterrows():
+        pattern_id = row["pattern_id"]
+        candidate = row["candidate_query"]
+        anchor = anchors.get(pattern_id, "")
+        if not anchor:
+            rows.append({
+                "pattern_id": pattern_id, "candidate_query": candidate, "anchor_query": "",
+                "trends_score_candidate": 0.0, "trends_score_anchor": 0.0, "trends_status": "no_anchor_available",
+            })
+            continue
+
+        anchor_score = cand_score = 0.0
+        status = "check_failed"
+        for attempt in range(3):
+            try:
+                pytrends.build_payload([anchor, candidate], timeframe=timeframe, geo=geo)
+                trend_df = pytrends.interest_over_time()
+                if not trend_df.empty:
+                    anchor_score = float(trend_df[anchor].mean())
+                    cand_score = float(trend_df[candidate].mean())
+                status = "confirmed" if _trends_confirms(anchor_score, cand_score, min_relative_to_anchor) else "no_signal"
+                break
+            except Exception:
+                status = "check_failed"
+                time.sleep(5 * (attempt + 1))
+        rows.append({
+            "pattern_id": pattern_id, "candidate_query": candidate, "anchor_query": anchor,
+            "trends_score_candidate": round(cand_score, 2), "trends_score_anchor": round(anchor_score, 2),
+            "trends_status": status,
+        })
+        time.sleep(1)
+
+    result = pd.DataFrame(rows, columns=columns)
+    result.attrs["truncated_candidates"] = truncated
+    return result
 
 
 def write_ai_prompt(patterns: pd.DataFrame, out_path: Path) -> None:
@@ -606,6 +809,7 @@ def write_article_templates_md(hub_plan: pd.DataFrame, patterns: pd.DataFrame, o
                 f"**Article title template:** {row['article_title_template']}",
                 f"**Validated article candidates:** {row['validated_keywords']}",
                 f"**Total search volume:** {row['total_search_volume']}",
+                f"**AI-suggested candidates confirmed via Trends:** {row['ai_suggested_keywords'] or '(none)'}",
                 "",
                 "### Recommended article structure",
                 row["recommended_article_structure"],
@@ -643,7 +847,15 @@ def data_quality_notes(patterns: pd.DataFrame) -> List[str]:
     return notes
 
 
-def write_html_report(patterns: pd.DataFrame, queue: pd.DataFrame, opportunities: pd.DataFrame, hub_plan: pd.DataFrame, out_path: Path) -> None:
+def write_html_report(
+    patterns: pd.DataFrame,
+    queue: pd.DataFrame,
+    opportunities: pd.DataFrame,
+    hub_plan: pd.DataFrame,
+    out_path: Path,
+    existing_coverage: Optional[pd.DataFrame] = None,
+    new_keywords_checked: Optional[pd.DataFrame] = None,
+) -> None:
     confirmed_count = 0 if opportunities.empty else int((opportunities["final_status"] == "confirmed_opportunity").sum())
     notes = data_quality_notes(patterns)
     notes_html = (
@@ -685,28 +897,47 @@ code {{ background:#f4eee8; padding:2px 5px; border-radius:5px; }}
 </div>
 {notes_html}
 <section class="card"><h2>1. Discovered Pattern Candidates</h2>{df_to_html_table(patterns)}</section>
-<section class="card"><h2>2. Keyword Volume Check Queue</h2><p>Export this list, check search volume externally, then re-import the volume CSV.</p>{df_to_html_table(queue)}</section>
-<section class="card"><h2>3. Volume-Validated Opportunities</h2>{df_to_html_table(opportunities)}</section>
-<section class="card"><h2>4. Content Hub Plan</h2>{df_to_html_table(hub_plan)}</section>
+<section class="card"><h2>2. Existing Pages Already Covering a Pattern</h2><p>Query variants that already rank the same URL — not new opportunities, just proof the pattern is real.</p>{df_to_html_table(existing_coverage if existing_coverage is not None else pd.DataFrame())}</section>
+<section class="card"><h2>3. Keyword Volume Check Queue</h2><p>Export this list, check search volume externally, then re-import the volume CSV.</p>{df_to_html_table(queue)}</section>
+<section class="card"><h2>4. Volume-Validated Opportunities</h2>{df_to_html_table(opportunities)}</section>
+<section class="card"><h2>5. New Keyword Candidates (Google Trends Check)</h2><p>AI-suggested candidates not yet in GSC, checked against Google Trends relative to a real GSC-proven keyword from the same hub. "no_signal" means Trends couldn't detect interest — often true for long-tail terms even when real demand exists — verify manually if you still want to pursue those.</p>{df_to_html_table(new_keywords_checked if new_keywords_checked is not None else pd.DataFrame())}</section>
+<section class="card"><h2>6. Content Hub Plan</h2>{df_to_html_table(hub_plan)}</section>
 </main></body></html>"""
     out_path.write_text(html_doc, encoding="utf-8")
 
 
-def write_outputs(patterns: pd.DataFrame, memberships: pd.DataFrame, queue: pd.DataFrame, opportunities: pd.DataFrame, hub_plan: pd.DataFrame, out_dir: Path) -> None:
+def write_outputs(
+    patterns: pd.DataFrame,
+    memberships: pd.DataFrame,
+    queue: pd.DataFrame,
+    opportunities: pd.DataFrame,
+    hub_plan: pd.DataFrame,
+    out_dir: Path,
+    existing_coverage: Optional[pd.DataFrame] = None,
+    new_keywords_checked: Optional[pd.DataFrame] = None,
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     # Clear leftovers from a previous run into the same out-dir so the zip only
     # ever contains the current run's files.
     for file in out_dir.iterdir():
         if file.is_file():
             file.unlink()
+    existing_coverage = existing_coverage if existing_coverage is not None else pd.DataFrame()
+    new_keywords_checked = new_keywords_checked if new_keywords_checked is not None else pd.DataFrame()
     patterns.to_csv(out_dir / "discovered_programmatic_patterns.csv", index=False)
     memberships.to_csv(out_dir / "pattern_keyword_memberships.csv", index=False)
+    existing_coverage.to_csv(out_dir / "existing_pages_by_pattern.csv", index=False)
     queue.to_csv(out_dir / "keyword_volume_check_queue.csv", index=False)
     opportunities.to_csv(out_dir / "programmatic_opportunities.csv", index=False)
+    new_keywords_checked.to_csv(out_dir / "new_keyword_candidates_checked.csv", index=False)
     hub_plan.to_csv(out_dir / "content_hub_plan.csv", index=False)
     write_ai_prompt(patterns, out_dir / "ai_pattern_review_prompt.md")
+    write_new_keyword_prompt(patterns, out_dir / "new_keyword_candidates_prompt.md")
     write_article_templates_md(hub_plan, patterns, out_dir / "article_templates_and_linking.md")
-    write_html_report(patterns, queue, opportunities, hub_plan, out_dir / "seo_hub_finder_report.html")
+    write_html_report(
+        patterns, queue, opportunities, hub_plan, out_dir / "seo_hub_finder_report.html",
+        existing_coverage=existing_coverage, new_keywords_checked=new_keywords_checked,
+    )
     with zipfile.ZipFile(out_dir / "seo_hub_finder_outputs.zip", "w", zipfile.ZIP_DEFLATED) as zf:
         for file in out_dir.iterdir():
             if file.name != "seo_hub_finder_outputs.zip" and file.is_file():
@@ -716,6 +947,7 @@ def write_outputs(patterns: pd.DataFrame, memberships: pd.DataFrame, queue: pd.D
 def run_pipeline(
     gsc_csv: Path,
     volume_csv: Optional[Path] = None,
+    new_keywords_csv: Optional[Path] = None,
     out_dir: Path = Path("out"),
     top_position: float = 10,
     expanded_position: float = 20,
@@ -724,7 +956,10 @@ def run_pipeline(
     min_distinct_slot_values: int = 3,
     min_template_confidence: float = 0.45,
     min_volume: float = 10,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    trends_geo: str = "DE",
+    min_trends_relative: float = 0.1,
+    max_trends_candidates: int = MAX_TRENDS_CANDIDATES,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     gsc = normalize_gsc(gsc_csv)
     patterns, memberships = discover_patterns(
         gsc=gsc,
@@ -735,18 +970,28 @@ def run_pipeline(
         min_distinct_slot_values=min_distinct_slot_values,
         min_template_confidence=min_template_confidence,
     )
+    existing_coverage = build_existing_coverage(patterns, memberships)
     queue = build_volume_queue(memberships)
     volume = normalize_volume(volume_csv) if volume_csv else pd.DataFrame(columns=["query", "search_volume", "competition", "cpc"])
     opportunities = merge_volume(memberships, volume, min_volume)
-    hub_plan = build_hub_plan(opportunities, patterns)
-    write_outputs(patterns, memberships, queue, opportunities, hub_plan, out_dir)
-    return patterns, memberships, queue, opportunities, hub_plan
+    new_keywords = normalize_new_keywords(new_keywords_csv)
+    new_keywords_checked = check_new_keyword_relevance(
+        new_keywords, memberships, geo=trends_geo, min_relative_to_anchor=min_trends_relative,
+        max_candidates=max_trends_candidates,
+    )
+    hub_plan = build_hub_plan(opportunities, patterns, new_keywords_checked)
+    write_outputs(patterns, memberships, queue, opportunities, hub_plan, out_dir, existing_coverage, new_keywords_checked)
+    return patterns, memberships, queue, opportunities, hub_plan, existing_coverage, new_keywords_checked
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Find programmatic SEO opportunities from GSC data.")
     parser.add_argument("gsc_csv", help="Google Search Console CSV export")
     parser.add_argument("--volume-csv", default=None, help="Optional Keyword Planner / search-volume CSV")
+    parser.add_argument(
+        "--new-keywords-csv", default=None,
+        help="Optional CSV of AI-suggested candidate keywords (pattern_id,candidate_query) to check against Google Trends",
+    )
     parser.add_argument("--out-dir", default="out", help="Output directory")
     parser.add_argument("--top-position", type=float, default=10)
     parser.add_argument("--expanded-position", type=float, default=20)
@@ -755,6 +1000,9 @@ def main() -> None:
     parser.add_argument("--min-distinct-slot-values", type=int, default=3)
     parser.add_argument("--min-template-confidence", type=float, default=0.45)
     parser.add_argument("--min-volume", type=float, default=10)
+    parser.add_argument("--trends-geo", default="DE", help="Google Trends region code for the new-keyword check")
+    parser.add_argument("--min-trends-relative", type=float, default=0.1, help="Min candidate/anchor Trends ratio to confirm a new keyword")
+    parser.add_argument("--max-trends-candidates", type=int, default=MAX_TRENDS_CANDIDATES, help="Cap on candidates checked against Trends per run")
     args = parser.parse_args()
 
     gsc_path = Path(args.gsc_csv)
@@ -763,9 +1011,10 @@ def main() -> None:
         raise SystemExit(1)
 
     try:
-        patterns, _, queue, opportunities, hub_plan = run_pipeline(
+        patterns, _, queue, opportunities, hub_plan, existing_coverage, new_keywords_checked = run_pipeline(
             gsc_csv=gsc_path,
             volume_csv=Path(args.volume_csv) if args.volume_csv else None,
+            new_keywords_csv=Path(args.new_keywords_csv) if args.new_keywords_csv else None,
             out_dir=Path(args.out_dir),
             top_position=args.top_position,
             expanded_position=args.expanded_position,
@@ -774,6 +1023,9 @@ def main() -> None:
             min_distinct_slot_values=args.min_distinct_slot_values,
             min_template_confidence=args.min_template_confidence,
             min_volume=args.min_volume,
+            trends_geo=args.trends_geo,
+            min_trends_relative=args.min_trends_relative,
+            max_trends_candidates=args.max_trends_candidates,
         )
     except ValueError as exc:
         print(f"Error: {exc}")
@@ -781,9 +1033,16 @@ def main() -> None:
 
     print("\nSEO Hub Finder finished.")
     print(f"Discovered patterns: {len(patterns)}")
+    print(f"Existing pages covering a pattern: {len(existing_coverage)}")
     print(f"Volume-check keywords: {len(queue)}")
     confirmed = 0 if opportunities.empty else int((opportunities["final_status"] == "confirmed_opportunity").sum())
     print(f"Confirmed keyword opportunities: {confirmed}")
+    if not new_keywords_checked.empty:
+        ai_confirmed = int((new_keywords_checked["trends_status"] == "confirmed").sum())
+        print(f"New AI-suggested keywords confirmed via Trends: {ai_confirmed}/{len(new_keywords_checked)}")
+        truncated = new_keywords_checked.attrs.get("truncated_candidates", 0)
+        if truncated:
+            print(f"Note: {truncated} candidate keyword(s) skipped (over the --max-trends-candidates cap).")
     print(f"Content hubs: {len(hub_plan)}")
     for note in data_quality_notes(patterns):
         print(f"Note: {note}")

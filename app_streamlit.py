@@ -1,22 +1,9 @@
 import tempfile
 from pathlib import Path
-import zipfile
 
-import pandas as pd
 import streamlit as st
 
-from seo_hub_finder import (
-    build_hub_plan,
-    build_volume_queue,
-    data_quality_notes,
-    discover_patterns,
-    merge_volume,
-    normalize_gsc,
-    normalize_volume,
-    write_ai_prompt,
-    write_article_templates_md,
-    write_html_report,
-)
+from seo_hub_finder import MAX_TRENDS_CANDIDATES, data_quality_notes, run_pipeline
 
 st.set_page_config(page_title="SEO Hub Finder", layout="wide")
 st.title("SEO Hub Finder — Programmatic SEO Discovery")
@@ -39,6 +26,12 @@ with st.sidebar:
     min_distinct_slot_values = st.number_input("Minimum distinct slot values", value=3, min_value=2)
     min_template_confidence = st.slider("Minimum template confidence", 0.0, 1.0, 0.45, 0.05)
     min_volume = st.number_input("Minimum monthly search volume", value=10.0, min_value=0.0)
+    with st.expander("New-keyword Trends check (advanced)"):
+        trends_geo = st.text_input("Google Trends region code", value="DE")
+        min_trends_relative = st.slider("Min. candidate/anchor Trends ratio", 0.0, 1.0, 0.1, 0.05)
+        max_trends_candidates = st.number_input(
+            "Max. candidates checked per run", value=MAX_TRENDS_CANDIDATES, min_value=1, max_value=100
+        )
 
 mode = st.radio(
     "Choose input mode",
@@ -67,6 +60,20 @@ else:
     gsc_path_fixed = None
     volume_path_fixed = None
 
+with st.expander("Optional: found new keyword ideas? Check them here"):
+    st.write(
+        "After a first run, copy the generated prompt below into any free LLM chat (ChatGPT, Gemini, "
+        "Claude, ...), then upload its CSV reply here and run again. Candidates get checked against "
+        "Google Trends before they're added to a hub — nothing gets added on invented demand."
+    )
+    if st.session_state.get("new_keyword_prompt"):
+        st.code(st.session_state["new_keyword_prompt"], language="markdown")
+    else:
+        st.caption("Run the tool once first to generate this prompt from your validated patterns.")
+    new_keywords_file = st.file_uploader(
+        "Upload new keyword candidates CSV (pattern_id, candidate_query)", type=["csv"], key="new_keywords_upload"
+    )
+
 run_clicked = st.button("Run SEO Hub Finder", type="primary")
 
 if run_clicked:
@@ -87,24 +94,31 @@ if run_clicked:
                 volume_path = tmp_path / "volume.csv"
                 volume_path.write_bytes(volume_file.getvalue())
 
+        new_keywords_path = None
+        if new_keywords_file:
+            new_keywords_path = tmp_path / "new_keywords.csv"
+            new_keywords_path.write_bytes(new_keywords_file.getvalue())
+
         out_dir = tmp_path / "out"
         out_dir.mkdir(exist_ok=True)
 
         try:
-            gsc = normalize_gsc(gsc_path)
-            volume = normalize_volume(volume_path) if volume_path else pd.DataFrame(columns=["query", "search_volume", "competition", "cpc"])
-            patterns, memberships = discover_patterns(
-                gsc=gsc,
+            patterns, memberships, queue, opportunities, hub_plan, existing_coverage, new_keywords_checked = run_pipeline(
+                gsc_csv=gsc_path,
+                volume_csv=volume_path,
+                new_keywords_csv=new_keywords_path,
+                out_dir=out_dir,
                 top_position=top_position,
-                min_gsc_impressions=min_gsc_impressions,
                 expanded_position=expanded_position,
+                min_gsc_impressions=min_gsc_impressions,
                 min_pattern_queries=int(min_pattern_queries),
                 min_distinct_slot_values=int(min_distinct_slot_values),
                 min_template_confidence=min_template_confidence,
+                min_volume=min_volume,
+                trends_geo=trends_geo,
+                min_trends_relative=min_trends_relative,
+                max_trends_candidates=int(max_trends_candidates),
             )
-            queue = build_volume_queue(memberships)
-            opportunities = merge_volume(memberships, volume, min_volume)
-            hub_plan = build_hub_plan(opportunities, patterns)
         except ValueError as exc:
             st.error(str(exc))
             st.stop()
@@ -114,20 +128,31 @@ if run_clicked:
                 st.exception(exc)
             st.stop()
 
+        st.session_state["new_keyword_prompt"] = (out_dir / "new_keyword_candidates_prompt.md").read_text(encoding="utf-8")
+
         for note in data_quality_notes(patterns):
             st.warning(note)
+        if not new_keywords_checked.empty:
+            truncated = new_keywords_checked.attrs.get("truncated_candidates", 0)
+            if truncated:
+                st.warning(f"{truncated} candidate keyword(s) skipped (over the max-candidates cap in the sidebar).")
 
         confirmed = 0 if opportunities.empty else int((opportunities["final_status"] == "confirmed_opportunity").sum())
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Pattern candidates", len(patterns))
-        c2.metric("Volume queue", len(queue))
-        c3.metric("Confirmed keywords", confirmed)
-        c4.metric("Content hubs", len(hub_plan))
+        c2.metric("Existing pages", len(existing_coverage))
+        c3.metric("Volume queue", len(queue))
+        c4.metric("Confirmed keywords", confirmed)
+        c5.metric("Content hubs", len(hub_plan))
 
         st.subheader("1. Discovered programmatic pattern candidates")
         st.dataframe(patterns, width="stretch")
 
-        st.subheader("2. Keyword volume check queue")
+        st.subheader("2. Existing pages already covering a pattern")
+        st.write("Query variants that already rank the same URL — not new opportunities, just proof the pattern is real.")
+        st.dataframe(existing_coverage, width="stretch")
+
+        st.subheader("3. Keyword volume check queue")
         st.write("Export this queue, check it in a keyword-volume tool, then re-import the volume CSV.")
         st.dataframe(queue, width="stretch")
         st.download_button(
@@ -137,34 +162,33 @@ if run_clicked:
             mime="text/csv",
         )
 
-        st.subheader("3. Volume-validated opportunities")
+        st.subheader("4. Volume-validated opportunities")
         if volume_path:
             st.dataframe(opportunities, width="stretch")
         else:
             st.warning("No volume CSV uploaded. These candidates are not final recommendations yet.")
             st.dataframe(opportunities, width="stretch")
 
-        st.subheader("4. Content hub plan")
+        st.subheader("5. New keyword candidates (Google Trends check)")
+        if new_keywords_checked.empty:
+            st.caption("No candidates uploaded yet — see 'Optional: found new keyword ideas?' above.")
+        else:
+            st.write(
+                "'confirmed' means Trends shows real relative interest vs. a GSC-proven keyword from the "
+                "same hub. 'no_signal' isn't necessarily zero demand — Trends often can't see long-tail "
+                "terms; verify manually via Keyword Planner if you still want to pursue those."
+            )
+            st.dataframe(new_keywords_checked, width="stretch")
+
+        st.subheader("6. Content hub plan")
         if hub_plan.empty:
             st.warning("No final hub yet. Upload a volume CSV or lower the minimum volume threshold.")
         st.dataframe(hub_plan, width="stretch")
 
-        patterns.to_csv(out_dir / "discovered_programmatic_patterns.csv", index=False)
-        memberships.to_csv(out_dir / "pattern_keyword_memberships.csv", index=False)
-        queue.to_csv(out_dir / "keyword_volume_check_queue.csv", index=False)
-        opportunities.to_csv(out_dir / "programmatic_opportunities.csv", index=False)
-        hub_plan.to_csv(out_dir / "content_hub_plan.csv", index=False)
-        write_ai_prompt(patterns, out_dir / "ai_pattern_review_prompt.md")
-        write_article_templates_md(hub_plan, patterns, out_dir / "article_templates_and_linking.md")
-        write_html_report(patterns, queue, opportunities, hub_plan, out_dir / "seo_hub_finder_report.html")
-
         html_report = (out_dir / "seo_hub_finder_report.html").read_bytes()
         st.download_button("Download HTML report", html_report, file_name="seo_hub_finder_report.html", mime="text/html")
 
-        zip_path = tmp_path / "seo_hub_finder_outputs.zip"
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            for file in out_dir.iterdir():
-                zf.write(file, arcname=file.name)
+        zip_path = out_dir / "seo_hub_finder_outputs.zip"
         st.download_button(
             "Download all outputs as ZIP",
             zip_path.read_bytes(),

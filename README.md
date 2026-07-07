@@ -54,14 +54,19 @@ Generated output files:
 ```txt
 out/discovered_programmatic_patterns.csv
 out/pattern_keyword_memberships.csv
+out/existing_pages_by_pattern.csv
 out/keyword_volume_check_queue.csv
 out/programmatic_opportunities.csv
+out/new_keyword_candidates_prompt.md
+out/new_keyword_candidates_checked.csv
 out/content_hub_plan.csv
 out/article_templates_and_linking.md
 out/ai_pattern_review_prompt.md
 out/seo_hub_finder_report.html
 out/seo_hub_finder_outputs.zip
 ```
+
+See `VOLUME_VALIDATION_WORKFLOW.md` for the full search-volume and new-keyword-candidate workflow.
 
 ## Quick local test
 
