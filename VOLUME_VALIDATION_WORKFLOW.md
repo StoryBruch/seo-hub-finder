@@ -130,10 +130,11 @@ suggest plausible new keywords — no heuristic can invent real brand/model/city
    For the Streamlit app, add it under Streamlit Cloud → your app → Settings → Secrets:
    `GEMINI_API_KEY = "your-key-here"`.
 3. That's it — every run now automatically asks Gemini for new keyword ideas per validated pattern and
-   checks them against Google Trends, with zero extra uploads. If the default model
-   (`gemini-2.0-flash`, override with `--ai-model`) has been renamed by Google, this step is skipped
-   silently rather than breaking the run — check [aistudio.google.com](https://aistudio.google.com) for the
-   current free-tier model name if that happens.
+   checks them against Google Trends, with zero extra uploads. The same key also powers the per-hub
+   German article templates and the hero images. The default model is `gemini-3.5-flash` (override with
+   `--ai-model`), with an automatic fallback chain to `gemini-2.5-flash` / `gemini-2.5-flash-lite` if the
+   default is unavailable — check [aistudio.google.com](https://aistudio.google.com) for current free-tier
+   model names if all of them ever get renamed.
 
 ### Manual fallback (no API key)
 

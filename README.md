@@ -60,13 +60,35 @@ out/programmatic_opportunities.csv
 out/new_keyword_candidates_prompt.md
 out/new_keyword_candidates_checked.csv
 out/content_hub_plan.csv
+out/article_plan_per_keyword.csv
 out/article_templates_and_linking.md
+out/hero_images/<hub>.jpg
 out/ai_pattern_review_prompt.md
 out/seo_hub_finder_report.html
 out/seo_hub_finder_outputs.zip
 ```
 
+Every volume-confirmed hub also gets:
+
+- an intent-specific **German article template** (H1/meta/intro templates with literal `{slot_n}`
+  placeholders, H2/H3 outline, FAQ questions, schema.org types, word-count target, E-E-A-T checklist) —
+  AI-refined via the free Gemini tier when `GEMINI_API_KEY` is set, otherwise from built-in static
+  intent profiles;
+- a **photorealistic 16:9 hero image** (free Gemini image model when a key is set; Pollinations.ai as
+  keyless fallback — anonymous fallback images may carry a small watermark; disable with
+  `--no-hero-images`). The ready-to-paste image prompt is always written to `content_hub_plan.csv`;
+- a spoke-level editorial plan (`article_plan_per_keyword.csv`): one row per article with the
+  slot-filled H1/meta/URL, including Trends-confirmed AI keyword suggestions as new-article rows.
+
 See `VOLUME_VALIDATION_WORKFLOW.md` for the full search-volume and new-keyword-candidate workflow.
+
+## Tests
+
+```bash
+python -m unittest test_seo_hub_finder -v
+```
+
+(dev-only; all network calls are mocked)
 
 ## Quick local test
 

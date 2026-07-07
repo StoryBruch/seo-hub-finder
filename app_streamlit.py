@@ -4,7 +4,15 @@ from pathlib import Path
 
 import streamlit as st
 
-from seo_hub_finder import MAX_TRENDS_CANDIDATES, data_quality_notes, run_pipeline
+from seo_hub_finder import (
+    MAX_HERO_IMAGES,
+    MAX_TRENDS_CANDIDATES,
+    TEMPLATE_COLUMNS,
+    TEMPLATE_STATUS_MESSAGES,
+    data_quality_notes,
+    hub_template_markdown,
+    run_pipeline,
+)
 
 
 def get_gemini_api_key():
@@ -37,11 +45,26 @@ with st.sidebar:
     min_distinct_slot_values = st.number_input("Minimum distinct slot values", value=3, min_value=2)
     min_template_confidence = st.slider("Minimum template confidence", 0.0, 1.0, 0.45, 0.05)
     min_volume = st.number_input("Minimum monthly search volume", value=10.0, min_value=0.0)
+    use_ai_templates = st.checkbox(
+        "AI-Artikel-Templates (Gemini)", value=True,
+        help="Erstellt pro Hub ein intent-spezifisches Artikel-Template. Ohne API-Key wird "
+             "automatisch ein statisches, intent-basiertes Template verwendet.",
+    )
+    hero_enabled = st.checkbox(
+        "Hero-Image pro Hub generieren", value=True,
+        help="Nutzt das kostenlose Gemini-Bildmodell, wenn GEMINI_API_KEY gesetzt ist; sonst "
+             "Pollinations.ai als Fallback (ohne Key, Bilder können ein kleines Wasserzeichen tragen). "
+             "Verlängert den Lauf um bis zu ein paar Minuten.",
+    )
     with st.expander("New-keyword Trends check (advanced)"):
         trends_geo = st.text_input("Google Trends region code", value="DE")
         min_trends_relative = st.slider("Min. candidate/anchor Trends ratio", 0.0, 1.0, 0.1, 0.05)
         max_trends_candidates = st.number_input(
             "Max. candidates checked per run", value=MAX_TRENDS_CANDIDATES, min_value=1, max_value=100
+        )
+    with st.expander("Hero images (advanced)"):
+        max_hero_images = st.number_input(
+            "Max. Hero-Images pro Lauf", value=MAX_HERO_IMAGES, min_value=1, max_value=20
         )
 
 mode = st.radio(
@@ -126,23 +149,28 @@ if run_clicked:
         out_dir.mkdir(exist_ok=True)
 
         try:
-            patterns, memberships, queue, opportunities, hub_plan, existing_coverage, new_keywords_checked = run_pipeline(
-                gsc_csv=gsc_path,
-                volume_csv=volume_path,
-                new_keywords_csv=new_keywords_path,
-                out_dir=out_dir,
-                top_position=top_position,
-                expanded_position=expanded_position,
-                min_gsc_impressions=min_gsc_impressions,
-                min_pattern_queries=int(min_pattern_queries),
-                min_distinct_slot_values=int(min_distinct_slot_values),
-                min_template_confidence=min_template_confidence,
-                min_volume=min_volume,
-                trends_geo=trends_geo,
-                min_trends_relative=min_trends_relative,
-                max_trends_candidates=int(max_trends_candidates),
-                ai_api_key=GEMINI_API_KEY,
-            )
+            with st.spinner("Analyzing data and generating outputs (AI templates and hero images can take a few minutes)..."):
+                (patterns, memberships, queue, opportunities, hub_plan, existing_coverage,
+                 new_keywords_checked, article_plan, ai_template_status) = run_pipeline(
+                    gsc_csv=gsc_path,
+                    volume_csv=volume_path,
+                    new_keywords_csv=new_keywords_path,
+                    out_dir=out_dir,
+                    top_position=top_position,
+                    expanded_position=expanded_position,
+                    min_gsc_impressions=min_gsc_impressions,
+                    min_pattern_queries=int(min_pattern_queries),
+                    min_distinct_slot_values=int(min_distinct_slot_values),
+                    min_template_confidence=min_template_confidence,
+                    min_volume=min_volume,
+                    trends_geo=trends_geo,
+                    min_trends_relative=min_trends_relative,
+                    max_trends_candidates=int(max_trends_candidates),
+                    ai_api_key=GEMINI_API_KEY,
+                    ai_article_templates=use_ai_templates,
+                    hero_images_enabled=hero_enabled,
+                    max_hero_images=int(max_hero_images),
+                )
         except ValueError as exc:
             st.error(str(exc))
             st.stop()
@@ -210,7 +238,80 @@ if run_clicked:
         st.subheader("6. Content hub plan")
         if hub_plan.empty:
             st.warning("No final hub yet. Upload a volume CSV or lower the minimum volume threshold.")
-        st.dataframe(hub_plan, width="stretch")
+        hub_plan_display = hub_plan.drop(
+            columns=[c for c in TEMPLATE_COLUMNS + ["article_title_template", "recommended_article_structure",
+                                                     "internal_linking_strategy", "hero_image_prompt"]
+                     if c in hub_plan.columns and c != "intent"],
+            errors="ignore",
+        )
+        st.dataframe(hub_plan_display, width="stretch")
+        if not hub_plan.empty and "duplicate_of" in hub_plan.columns:
+            duplicates = hub_plan[hub_plan["duplicate_of"].astype(str) != ""]
+            if not duplicates.empty:
+                st.warning(
+                    f"{len(duplicates)} Hub(s) überschneiden sich fast vollständig mit einem stärkeren Hub "
+                    "(Spalte duplicate_of) — nur den kanonischen Hub umsetzen."
+                )
+
+        st.subheader("7. Artikel-Templates pro Hub")
+        st.caption(TEMPLATE_STATUS_MESSAGES.get(ai_template_status, ai_template_status))
+        if hub_plan.empty:
+            st.caption("Noch keine bestätigten Hubs — Templates erscheinen nach der Volumen-Validierung.")
+        else:
+            for _, row in hub_plan.iterrows():
+                with st.expander(f"{row['hub_label']} — {row.get('h1_template', '')}"):
+                    st.markdown(hub_template_markdown(row))
+        st.download_button(
+            "Download article_templates_and_linking.md",
+            (out_dir / "article_templates_and_linking.md").read_bytes(),
+            file_name="article_templates_and_linking.md",
+            mime="text/markdown",
+        )
+
+        st.subheader("8. Artikel-Plan pro Keyword")
+        st.write("Eine Zeile = ein Artikel, mit fertig ausgefüllter H1/Meta aus dem Hub-Template.")
+        st.dataframe(article_plan, width="stretch")
+        if not article_plan.empty:
+            st.download_button(
+                "Download article_plan_per_keyword.csv",
+                article_plan.to_csv(index=False).encode("utf-8"),
+                file_name="article_plan_per_keyword.csv",
+                mime="text/csv",
+            )
+
+        st.subheader("9. Hub Hero-Images")
+        hero_dir = out_dir / "hero_images"
+        has_images = (
+            not hub_plan.empty and "hero_image_file" in hub_plan.columns
+            and (hub_plan["hero_image_file"].astype(str) != "").any()
+        )
+        if has_images:
+            shown = hub_plan[hub_plan["hero_image_file"].astype(str) != ""]
+            columns = st.columns(3)
+            for i, (_, row) in enumerate(shown.iterrows()):
+                image_path = hero_dir / row["hero_image_file"]
+                if image_path.exists():
+                    columns[i % 3].image(
+                        image_path.read_bytes(),
+                        caption=f"{row['hub_label']} ({row['hero_image_provider']})",
+                        width="stretch",
+                    )
+            missing = hub_plan[
+                (hub_plan["hero_image_file"].astype(str) == "")
+                & hub_plan["hero_image_status"].astype(str).str.startswith(("failed", "skipped_time", "skipped_cap"))
+            ]
+            if not missing.empty:
+                st.caption(
+                    f"Kein Bild für: {', '.join(missing['hub_label'])} — die fertigen Bild-Prompts "
+                    "stehen in content_hub_plan.csv (hero_image_prompt)."
+                )
+        elif hero_enabled:
+            st.caption(
+                "Keine Hero-Images in diesem Lauf (keine bestätigten Hubs, Provider nicht erreichbar oder "
+                "Rate-Limit). Fertige Bild-Prompts stehen in content_hub_plan.csv (hero_image_prompt)."
+            )
+        else:
+            st.caption("Hero-Image-Generierung ist in der Sidebar deaktiviert.")
 
         html_report = (out_dir / "seo_hub_finder_report.html").read_bytes()
         st.download_button("Download HTML report", html_report, file_name="seo_hub_finder_report.html", mime="text/html")

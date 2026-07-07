@@ -4,7 +4,7 @@ You are an SEO strategist. Each pattern below is a content hub already validated
 
 Return your answer as a CSV with exactly two columns: `pattern_id,candidate_query`. Suggest up to 8 new candidates per pattern.
 
-## pattern_024 — Für Pattern Hub
+## pattern_024 — Kaffeebohnen Hub
 Pattern: `{slot_1} für {slot_2}`
 Existing example queries already ranking: beste kaffeebohnen für vollautomat; beste bohnen für cappuccino; beste kaffee für latte macchiato; beste kaffeebohnen für espresso; beste kaffee für siebträger
 
@@ -20,7 +20,7 @@ Existing example queries already ranking: jura e8 entkalken; delonghi magnifica 
 Pattern: `{slot_1} reinigen`
 Existing example queries already ranking: jura e8 reinigen; delonghi magnifica reinigen; saeco xelsis reinigen; philips 5400 reinigen; siemens eq6 reinigen
 
-## pattern_001 — Alternative Pattern Hub
+## pattern_001 — Reinigungstabletten Hub
 Pattern: `alternative {slot_1}`
 Existing example queries already ranking: alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten
 
@@ -28,6 +28,6 @@ Existing example queries already ranking: alternative zu jura reinigungstablette
 Pattern: `{slot_1} reinigungstabletten`
 Existing example queries already ranking: alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten
 
-## pattern_043 — Zu Pattern Hub
+## pattern_043 — Reinigungstabletten Hub
 Pattern: `{slot_1} zu {slot_2}`
 Existing example queries already ranking: alternative zu jura reinigungstabletten; alternative zu delonghi reinigungstabletten; alternative zu siemens reinigungstabletten; alternative zu philips reinigungstabletten

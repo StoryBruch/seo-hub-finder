@@ -3,3 +3,4 @@ __pycache__/
 .env
 out*/
 .streamlit/secrets.toml
+.venv*/
