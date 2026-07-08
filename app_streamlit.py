@@ -452,12 +452,9 @@ st.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen — mit 
 
 _max_kw = f"{MAX_KEYWORDS:,}".replace(",", ".")
 st.info(
-    f"ℹ️ **Gut zu wissen:** Es werden bis zu **{_max_kw}** Striking-Distance-Keywords "
-    f"angezeigt. Pro Klick auf »Meta-Titles der Auswahl …« werden **max. "
-    f"{MAX_META_PER_RUN}** Titel optimiert — der kostenlose Gemini-Zugang ist geteilt "
-    "(~10–15 Anfragen/Minute, ~1.500/Tag). Der Titel-**Abruf** und der Keyword-Check "
-    "laufen unbegrenzt und ohne Key. Beim ersten Aufruf nach einer Pause braucht die "
-    "App ~30 Sek. zum Aufwachen — das ist normal."
+    f"- Bitte maximal Datensätze mit **{_max_kw}** Keywords hochladen "
+    "(oder **Demo-Daten** verwenden).\n"
+    f"- Maximal **{MAX_META_PER_RUN}** Meta-Titles auf einmal optimieren lassen."
 )
 
 if source == OPT_UPLOAD and uploaded is None:
