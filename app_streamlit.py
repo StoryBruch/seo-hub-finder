@@ -26,6 +26,11 @@ SAMPLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 TABLE_HEIGHT = 460  # fester Rahmen -> vertikaler Scrollbalken ist immer aktiv
 
+# Schutzgrenzen, damit die App bei großen Datensätzen / dem geteilten Gemini-
+# Free-Tier stabil bleibt.
+MAX_KEYWORDS = 3000        # so viele Striking-Distance-Keywords werden angezeigt
+MAX_META_PER_RUN = 12      # so viele Meta-Titles pro »Optimieren«-Klick (RPM-Limit)
+
 # Scrollbalken der Tabellen dauerhaft anzeigen (vertikal + horizontal). Das Grid
 # (glide-data-grid) scrollt über `.dvn-scroller`; overflow:scroll erzwingt die
 # Balken auch dann, wenn Inhalt gerade passt.
@@ -445,6 +450,16 @@ st.title("Striking Distance Finder")
 st.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen — mit den "
            "wichtigsten Zahlen und einer Begründung je Zeile.")
 
+_max_kw = f"{MAX_KEYWORDS:,}".replace(",", ".")
+st.info(
+    f"ℹ️ **Gut zu wissen:** Es werden bis zu **{_max_kw}** Striking-Distance-Keywords "
+    f"angezeigt. Pro Klick auf »Meta-Titles der Auswahl …« werden **max. "
+    f"{MAX_META_PER_RUN}** Titel optimiert — der kostenlose Gemini-Zugang ist geteilt "
+    "(~10–15 Anfragen/Minute, ~1.500/Tag). Der Titel-**Abruf** und der Keyword-Check "
+    "laufen unbegrenzt und ohne Key. Beim ersten Aufruf nach einer Pause braucht die "
+    "App ~30 Sek. zum Aufwachen — das ist normal."
+)
+
 if source == OPT_UPLOAD and uploaded is None:
     st.info("Lade links deinen GSC-CSV-Export hoch — oder wähle **Demo-Daten**, "
             "um das Tool sofort ohne eigene Datei auszuprobieren.")
@@ -504,15 +519,22 @@ if exclude_brand and brand_terms:
 else:
     visible = candidates
 
-# Standard-Sortierung, sobald Keywords vorliegen: nach Seite (URL) gruppiert,
-# darin alphabetisch nach Keyword. Nach Klick-Potenzial kann man per Spaltenkopf
-# umsortieren.
-visible = visible.sort_values(["page", "query"], kind="stable").reset_index(drop=True)
-
 if visible.empty:
     st.warning("Alle gefundenen Keywords wurden als Marken-Keywords ausgeschlossen. "
                "Nimm oben einzelne wieder auf oder deaktiviere den Marken-Ausschluss.")
     st.stop()
+
+# Schutzgrenze: bei sehr großen Exporten nur die Top-Keywords nach Klick-Potenzial
+# anzeigen, damit die Tabelle flott und die App stabil bleibt.
+if len(visible) > MAX_KEYWORDS:
+    visible = visible.nlargest(MAX_KEYWORDS, "opportunity_score")
+    st.warning(f"Sehr großer Datensatz — es werden die **{MAX_KEYWORDS:,}** Keywords "
+               "mit dem höchsten Klick-Potenzial angezeigt.".replace(",", "."))
+
+# Standard-Sortierung, sobald Keywords vorliegen: nach Seite (URL) gruppiert,
+# darin alphabetisch nach Keyword. Nach Klick-Potenzial kann man per Spaltenkopf
+# umsortieren.
+visible = visible.sort_values(["page", "query"], kind="stable").reset_index(drop=True)
 
 # --- Summary metrics ---------------------------------------------------------
 total_upside = int(visible["opportunity_score"].sum())
@@ -542,6 +564,8 @@ if n_promising:
                "»Klick-Potenzial/Monat« sortieren zeigt sie oben.")
 if meta and meta.get("summary"):
     st.caption("📄 " + meta["summary"])
+if st.session_state.get("meta_notice"):
+    st.warning(st.session_state["meta_notice"])
 
 
 def handle_meta_click():
@@ -552,6 +576,17 @@ def handle_meta_click():
         st.warning("Bitte zuerst in einer Tabelle Zeilen über die Spalte "
                    "»Meta-Title optimieren« anhaken.")
         return
+    # Obergrenze pro Durchgang: Keywords zuerst, dann Seiten auffüllen, damit das
+    # geteilte Gemini-Minutenlimit nicht überläuft und nichts leer zurückkommt.
+    total = len(kw_idx) + len(pg_idx)
+    notice = ""
+    if total > MAX_META_PER_RUN:
+        kw_idx = kw_idx[:MAX_META_PER_RUN]
+        pg_idx = pg_idx[:max(0, MAX_META_PER_RUN - len(kw_idx))]
+        notice = (f"Max. {MAX_META_PER_RUN} Meta-Titles pro Durchgang (du hattest "
+                  f"{total} gewählt). Die ersten {len(kw_idx) + len(pg_idx)} wurden "
+                  "verarbeitet — den Rest einfach in einem zweiten Durchgang anhaken.")
+    st.session_state["meta_notice"] = notice  # überlebt das st.rerun() unten
     selected_kw = visible.iloc[kw_idx] if kw_idx else visible.iloc[0:0]
     selected_pages = [by_page.iloc[i]["page"] for i in pg_idx if i < len(by_page)]
     run_meta_analysis(selected_kw, selected_pages, visible, "", api_key,
@@ -586,7 +621,8 @@ with tab_list:
             "🔎 Meta-Titles der Auswahl prüfen & optimieren", type="primary")
         note = ("Zeilen oben über »Meta-Title optimieren« anhaken, dann klicken — "
                 f"Titel werden abgerufen, geprüft und (mit Gemini-Key) auf "
-                f"{sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen optimiert.")
+                f"{sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen optimiert. Max. "
+                f"{MAX_META_PER_RUN} pro Durchgang.")
         if not api_key:
             note += (" Ohne Gemini-Key laufen Abruf + Keyword-Check trotzdem; für "
                      "Vorschläge einen kostenlosen Key als `GEMINI_API_KEY` "
