@@ -334,7 +334,7 @@ def build_reasoning(row) -> str:
     upside = int(row["click_upside"])
 
     impr_str = f"{impressions:,}".replace(",", ".")
-    parts = [f"Platz {position:.1f} · {impr_str} Impressionen/Monat · "
+    parts = [f"Platz {position:.1f} · {impr_str} Impressionen/28 Tage · "
              f"{clicks} Klicks (CTR {ctr_pct:.1f} %)."]
 
     if row["is_underperformer"] and row["expected_ctr"] > 0:
@@ -348,7 +348,7 @@ def build_reasoning(row) -> str:
 
     if upside > 0:
         parts.append(f"Auf Top-3 gehoben wären ~{upside} zusätzliche "
-                     f"Klicks/Monat drin.")
+                     f"Klicks/28 Tage drin.")
     return " ".join(parts)
 
 

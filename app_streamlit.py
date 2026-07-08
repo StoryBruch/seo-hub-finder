@@ -137,7 +137,7 @@ def display_frame(candidates: pd.DataFrame, show_cpc, meta=None):
     disp["Klicks"] = candidates["clicks"].astype(int).values
     disp["CTR %"] = (candidates["ctr"] * 100).round(2).values
     disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2).values
-    disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int).values
+    disp["Klick-Potenzial/28 Tage"] = candidates["opportunity_score"].astype(int).values
     if show_cpc:
         disp["CPC"] = ["" for _ in range(len(candidates))]  # braucht kostenpfl. API
     disp["Begründung"] = candidates["reasoning"].values
@@ -160,7 +160,7 @@ def page_frame(by_page: pd.DataFrame, meta=None):
         gray_cols = ["Title-Vorschlag (mehrere KW)", "Abgedeckte KW"]
 
     show["Keywords"] = by_page["n_keywords"].values
-    show["Klick-Potenzial/Monat"] = by_page["total_upside"].values
+    show["Klick-Potenzial/28 Tage"] = by_page["total_upside"].values
     show["Ø-Position"] = by_page["avg_position"].values
     show["Top-Keywords"] = by_page["top_keywords"].values
     return show, gray_cols
@@ -329,7 +329,7 @@ if source == OPT_UPLOAD:
 st.sidebar.subheader("Filter")
 pos_min, pos_max = st.sidebar.slider("Positions-Bereich", 1.0, 50.0, (4.0, 20.0),
                                      step=0.5)
-min_impressions = st.sidebar.number_input("Mindest-Impressionen/Monat", 0, 5000, 30,
+min_impressions = st.sidebar.number_input("Mindest-Impressionen/28 Tage", 0, 5000, 30,
                                           step=10)
 underperformance = st.sidebar.slider(
     "Unterperformance-Schwelle", 0.5, 1.0, 0.8, step=0.05,
@@ -363,7 +363,7 @@ def show_help():
 
         ### TL;DR – die wichtigsten Hebel
         - **Grün hinterlegte Zeilen = die vielversprechendsten Keywords.** Über die
-          Spalte **»Klick-Potenzial/Monat«** sortieren (Klick auf den Spaltenkopf),
+          Spalte **»Klick-Potenzial/28 Tage«** sortieren (Klick auf den Spaltenkopf),
           um sie oben zu sehen.
         - **Meta-Titles prüfen & optimieren:** Häkchen in der Spalte
           **»Meta-Title optimieren«** setzen → unten links auf den roten Button
@@ -394,10 +394,10 @@ def show_help():
         *Beispiel:* Keyword auf **Platz 6** = Seite 1 unten → mit etwas Arbeit realistisch
         auf Top-3 zu heben.
 
-        **Mindest-Impressionen/Monat (Standard 30)**
+        **Mindest-Impressionen/28 Tage (Standard 30)**
         „Impressionen" = wie oft dein Eintrag in der Suche **angezeigt** wurde. Dieser
         Filter wirft Keywords raus, die kaum jemand sucht (kein Potenzial).
-        *Beispiel:* Wert **30** = nur Keywords mit **≥ 30** Einblendungen/Monat.
+        *Beispiel:* Wert **30** = nur Keywords mit **≥ 30** Einblendungen/28 Tage.
         Höher stellen = nur „dicke Fische".
 
         **Unterperformance-Schwelle (Standard 0,8)**
@@ -423,7 +423,7 @@ def show_help():
         - **Impressionen / Klicks / CTR %** – Anzeigen, Klicks, Klickrate.
         - **Ø-CTR Position %** – die *normale* CTR für diese Position (aus deinen Daten).
           Liegt deine CTR klar darunter → Hebel = besserer Title/Snippet.
-        - **Klick-Potenzial/Monat** – geschätzte **zusätzliche Klicks**, wenn das Keyword
+        - **Klick-Potenzial/28 Tage** – geschätzte **zusätzliche Klicks**, wenn das Keyword
           auf Top-3 steigt. **Danach sortieren = größte Chancen zuerst.**
         - **Begründung** – ein Satz, warum das Keyword eine Chance ist.
 
@@ -454,7 +454,9 @@ _max_kw = f"{MAX_KEYWORDS:,}".replace(",", ".")
 st.info(
     f"- Bitte maximal Datensätze mit **{_max_kw}** Keywords hochladen "
     "(oder **Demo-Daten** verwenden).\n"
-    f"- Maximal **{MAX_META_PER_RUN}** Meta-Titles auf einmal optimieren lassen."
+    f"- Maximal **{MAX_META_PER_RUN}** Meta-Titles auf einmal optimieren lassen.\n"
+    "- Bitte nur GSC-Exporte mit Zeitraum **letzte 28 Tage** hochladen "
+    "(darauf sind die Filter abgestimmt)."
 )
 
 if source == OPT_UPLOAD and uploaded is None:
@@ -538,7 +540,7 @@ total_upside = int(visible["opportunity_score"].sum())
 col1, col2, col3 = st.columns(3)
 col1.metric("Zeilen im Export", f"{len(df):,}".replace(",", "."))
 col2.metric("Striking-Distance-Keywords", f"{len(visible):,}".replace(",", "."))
-col3.metric("Klick-Potenzial/Monat", f"{total_upside:,}".replace(",", "."))
+col3.metric("Klick-Potenzial/28 Tage", f"{total_upside:,}".replace(",", "."))
 
 brand_primary = detected[0] if detected else ""
 api_key = get_api_key()
@@ -558,7 +560,7 @@ if n_promising:
     st.caption(f"🟢 **{n_promising} besonders vielversprechende Keyword(s)** sanft "
                "grün hervorgehoben — höchstes Klick-Potenzial und/oder CTR-"
                "Unterperformer (schneller Hebel per Title/Snippet). Nach "
-               "»Klick-Potenzial/Monat« sortieren zeigt sie oben.")
+               "»Klick-Potenzial/28 Tage« sortieren zeigt sie oben.")
 if meta and meta.get("summary"):
     st.caption("📄 " + meta["summary"])
 if st.session_state.get("meta_notice"):
