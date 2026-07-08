@@ -43,6 +43,8 @@ st.markdown(
         background-color: #1f6feb !important; border-color: #1f6feb !important; }
     [data-testid="stDownloadButton"] button,
     [data-testid="stDownloadButton"] button * { color: #ffffff !important; }
+    /* Datenquelle-Auswahl prominenter */
+    [data-testid="stSidebar"] div[role="radiogroup"] label p { font-size: 1.05rem; font-weight: 600; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -303,12 +305,17 @@ def run_meta_analysis(selected_kw: pd.DataFrame, selected_pages: list,
 # Sidebar
 # --------------------------------------------------------------------------- #
 
+OPT_DEMO = "Demo-Daten"
+OPT_UPLOAD = "Eigene GSC-CSV hochladen"
+
 st.sidebar.title("Datensatz & Filter")
 
-source = st.sidebar.radio("Datenquelle", ["Demo-Daten", "GSC-CSV hochladen"])
+st.sidebar.markdown("### 📁 Datenquelle")
+source = st.sidebar.radio("Datenquelle", [OPT_DEMO, OPT_UPLOAD],
+                          label_visibility="collapsed")
 
 uploaded = None
-if source == "GSC-CSV hochladen":
+if source == OPT_UPLOAD:
     uploaded = st.sidebar.file_uploader(
         "GSC-Export (CSV)", type=["csv", "tsv", "txt"],
         help="Search Console → Leistung → Suchergebnisse → Dimensionen "
@@ -345,78 +352,106 @@ manual_brand_terms = tuple(sdf.parse_brand_terms(brand_input))
 def show_help():
     st.markdown(
         """
-        ### TL;DR – die wichtigsten Hebel
+        ### In einem Satz
+        Das Tool zeigt dir Suchbegriffe, bei denen du bei Google **knapp vor Seite 1
+        / den Top-Plätzen** stehst — also dort, wo sich Arbeit am meisten lohnt.
 
-        - **Grün hinterlegte Zeilen = die vielversprechendsten Keywords.** Sortiere
-          die Tabelle über die Spalte **»Klick-Potenzial/Monat«** (Klick auf den
-          Spaltenkopf), um sie oben zu sehen.
+        ### TL;DR – die wichtigsten Hebel
+        - **Grün hinterlegte Zeilen = die vielversprechendsten Keywords.** Über die
+          Spalte **»Klick-Potenzial/Monat«** sortieren (Klick auf den Spaltenkopf),
+          um sie oben zu sehen.
         - **Meta-Titles prüfen & optimieren:** Häkchen in der Spalte
           **»Meta-Title optimieren«** setzen → unten links auf den roten Button
           klicken. Dann erscheinen (grau) nach der URL: *Keyword enthalten*,
-          *Meta Title aktuell* und *Meta Title neu (Vorschlag)*.
-        - **Nach Seite gruppiert** (2. Tab): zeigt URLs mit mehreren Chancen; der
+          *Meta Title aktuell*, *Meta Title neu (Vorschlag)*.
+        - **Nach Seite gruppiert** (2. Tab): URLs mit mehreren Chancen; der
           Titel-Vorschlag deckt dort mehrere Keywords einer Seite ab.
-        - **Filter links** steuern, was gefunden wird (Positions-Bereich,
-          Mindest-Impressionen, Unterperformance-Schwelle, Marken).
         - **⬇️ Liste als CSV** (unten rechts) exportiert die Tabelle.
 
         ---
-        ### Was macht dieses Tool? (für SEO-Einsteiger)
+        ### Woher kommen die Daten? (Google Search Console)
+        Das Tool braucht deinen **GSC-Leistungsbericht** als CSV:
+        1. In der [Search Console](https://search.google.com/search-console) →
+           **Leistung → Suchergebnisse**.
+        2. Oben die Dimensionen **»Suchanfragen«** *und* **»Seiten«** aktivieren.
+        3. Rechts oben **Exportieren → CSV** (bzw. Google Tabellen).
+        4. Diese Datei links unter **»Eigene GSC-CSV hochladen«** einlesen — oder
+           erstmal **»Demo-Daten«** wählen und alles ausprobieren.
 
-        Es liest den **Leistungs-Export deiner Google Search Console** (Suchanfragen
-        + Seiten) und findet **Striking-Distance-Keywords**: Suchbegriffe, für die du
-        schon *knapp unter* den Top-Plätzen rankst (Standard: Position 4–20) und die
-        genug Impressionen haben. Das sind die Begriffe, bei denen wenig Aufwand oft
-        die meisten zusätzlichen Klicks bringt.
+        ---
+        ### Die Filter links – einfach erklärt (mit Beispiel)
 
-        **Die wichtigsten Spalten**
-        - **Position** – dein durchschnittliches Ranking.
-        - **Impressionen / Klicks / CTR %** – wie oft du gesehen/geklickt wirst.
-        - **Ø-CTR Position %** – die für diese Position *normale* CTR, berechnet aus
-          deinen eigenen Daten. Liegt deine CTR deutlich darunter, ist der Hebel oft
-          ein besserer Title/Snippet (kein neues Ranking nötig).
-        - **Klick-Potenzial/Monat** – geschätzte zusätzliche Klicks, wenn das Keyword
-          auf Top-3 steigt. Danach sortieren = größte Chancen zuerst.
+        **Positions-Bereich (Standard 4–20)**
+        Google notiert für jedes Keyword deine **Durchschnittsposition** (1 = ganz
+        oben). Der Regler legt fest, welcher Bereich dich interessiert.
+        *Warum 4–20?* Platz **1–3** hast du praktisch schon gewonnen (wird ignoriert),
+        Platz **über 20** ist meist zu weit weg. Dazwischen liegt die „Schlagdistanz".
+        *Beispiel:* Keyword auf **Platz 6** = Seite 1 unten → mit etwas Arbeit realistisch
+        auf Top-3 zu heben.
+
+        **Mindest-Impressionen/Monat (Standard 30)**
+        „Impressionen" = wie oft dein Eintrag in der Suche **angezeigt** wurde. Dieser
+        Filter wirft Keywords raus, die kaum jemand sucht (kein Potenzial).
+        *Beispiel:* Wert **30** = nur Keywords mit **≥ 30** Einblendungen/Monat.
+        Höher stellen = nur „dicke Fische".
+
+        **Unterperformance-Schwelle (Standard 0,8)**
+        Das Tool rechnet aus **deinen eigenen Daten** aus, welche Klickrate (CTR) für
+        eine Position **normal** ist. Die Schwelle sagt: **ab wann ist deine CTR
+        auffällig zu niedrig?**
+        *Beispiel:* Für Platz 6 sind bei dir z. B. ~3 % CTR normal. Bei Schwelle **0,8**
+        giltst du als **Unterperformer**, wenn du unter **80 % davon** liegst (< 2,4 %).
+        Hast du nur 1,2 %, ist das ein klarer Fall → oft reicht schon ein **besserer
+        Titel/Snippet**, um Klicks zu holen (ganz ohne besseres Ranking).
+        Niedrigere Schwelle = strenger (nur krasse Fälle), höhere = lockerer.
+
+        **Marken-Begriffe / »… aus der Liste ausschließen«**
+        Deine **Marke** (z. B. dein Domain-/Firmenname) wird automatisch aus der Domain
+        erkannt. Marken-Suchen (Leute, die dich eh kennen) verzerren die Auswertung –
+        sie werden aus der CTR-Berechnung herausgenommen und lassen sich per Häkchen
+        auch aus der Liste ausblenden (einzelne kann man wieder aufnehmen). Eigene
+        Begriffe (weitere Marken, Tippfehler-Varianten) kannst du im Feld ergänzen.
+
+        ---
+        ### Die wichtigsten Spalten
+        - **Position** – dein durchschnittliches Ranking (eine Nachkommastelle).
+        - **Impressionen / Klicks / CTR %** – Anzeigen, Klicks, Klickrate.
+        - **Ø-CTR Position %** – die *normale* CTR für diese Position (aus deinen Daten).
+          Liegt deine CTR klar darunter → Hebel = besserer Title/Snippet.
+        - **Klick-Potenzial/Monat** – geschätzte **zusätzliche Klicks**, wenn das Keyword
+          auf Top-3 steigt. **Danach sortieren = größte Chancen zuerst.**
         - **Begründung** – ein Satz, warum das Keyword eine Chance ist.
 
-        **Filter links (Datensatz & Filter)**
-        - **Datenquelle** – Demo-Daten oder eigenen GSC-CSV-Export hochladen.
-        - **Positions-Bereich** – welcher Ranking-Bereich als „striking distance“ gilt.
-        - **Mindest-Impressionen/Monat** – blendet zu kleine Keywords aus.
-        - **Unterperformance-Schwelle** – ab wann eine CTR als „zu niedrig“ gilt.
-        - **Marken-Begriffe / ausschließen** – Marke wird aus deiner Domain automatisch
-          erkannt; Marken-Suchanfragen kannst du aus der Liste ausblenden (und einzelne
-          wieder aufnehmen).
+        ### Meta-Title-Optimierung
+        Der aktuelle Seitentitel wird **kostenlos** abgerufen und geprüft, ob dein
+        Keyword darin vorkommt (auch bei Singular/Plural, Füllwörtern oder anderer
+        Reihenfolge). Mit hinterlegtem (kostenlosem) **Gemini-Key** kommt zusätzlich ein
+        neuer Titel-Vorschlag mit garantiert **52–59 Zeichen**. Ohne Key laufen Abruf +
+        Keyword-Check trotzdem.
 
-        **Meta-Title-Optimierung**
-        Der aktuelle Seitentitel wird kostenlos abgerufen und geprüft, ob dein Keyword
-        (auch als Singular/Plural, mit Füllwörtern oder anderer Reihenfolge) darin
-        vorkommt. Mit hinterlegtem (kostenlosem) Gemini-Key bekommst du zusätzlich einen
-        neuen Titel-Vorschlag mit garantiert 52–59 Zeichen. Ohne Key funktionieren Abruf
-        und Keyword-Check trotzdem.
-
-        > Tipp: Erst nach **Klick-Potenzial** sortieren, die grünen Zeilen ansehen,
-        > die spannendsten anhaken und die Meta-Titles optimieren.
+        > Tipp: nach **Klick-Potenzial** sortieren → grüne Zeilen ansehen → die
+        > spannendsten anhaken → Meta-Titles optimieren.
         """
     )
 
 
-col_head, col_help = st.columns([3, 1])
+col_help, _ = st.columns([2, 3])
 with col_help:
-    if st.button("❓ So funktioniert's", width="stretch"):
+    if st.button("❓ So funktioniert's – Erklärung & Dokumentation",
+                 width="stretch", type="primary"):
         show_help()
 
 st.title("Striking Distance Finder")
 st.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen — mit den "
            "wichtigsten Zahlen und einer Begründung je Zeile.")
 
-if source == "GSC-CSV hochladen" and uploaded is None:
+if source == OPT_UPLOAD and uploaded is None:
     st.info("Lade links deinen GSC-CSV-Export hoch — oder wähle **Demo-Daten**, "
             "um das Tool sofort ohne eigene Datei auszuprobieren.")
     st.stop()
 
 try:
-    if source == "Demo-Daten":
+    if source == OPT_DEMO:
         with open(SAMPLE_PATH, "rb") as fh:
             file_bytes = fh.read()
     else:
@@ -462,16 +497,17 @@ if exclude_brand:
                    "Suchanfrage vor. Trage links unter »Marken-Begriffe« deinen "
                    "Markennamen ein (z. B. genau so, wie Nutzer nach dir suchen), um "
                    "Marken-Suchanfragen auszuschließen.")
-elif brand_queries:
-    st.caption(f"🏷️ **{len(brand_queries)} Marken-Keyword(s)** erkannt (Marke: "
-               f"{detected_str}). Aktiviere links »Marken-Keywords auch aus der Liste "
-               "ausschließen«, um sie auszublenden.")
 
 if exclude_brand and brand_terms:
     drop_mask = candidates["is_brand"] & ~candidates["query"].isin(reinclude)
     visible = candidates[~drop_mask].reset_index(drop=True)
 else:
     visible = candidates
+
+# Standard-Sortierung, sobald Keywords vorliegen: nach Seite (URL) gruppiert,
+# darin alphabetisch nach Keyword. Nach Klick-Potenzial kann man per Spaltenkopf
+# umsortieren.
+visible = visible.sort_values(["page", "query"], kind="stable").reset_index(drop=True)
 
 if visible.empty:
     st.warning("Alle gefundenen Keywords wurden als Marken-Keywords ausgeschlossen. "
