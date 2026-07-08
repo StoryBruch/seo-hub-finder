@@ -28,7 +28,7 @@ TABLE_HEIGHT = 460  # fester Rahmen -> vertikaler Scrollbalken ist immer aktiv
 
 # Schutzgrenzen, damit die App bei großen Datensätzen / dem geteilten Gemini-
 # Free-Tier stabil bleibt.
-MAX_KEYWORDS = 3000        # so viele Striking-Distance-Keywords werden angezeigt
+MAX_KEYWORDS = 2000        # so viele Striking-Distance-Keywords werden angezeigt
 MAX_META_PER_RUN = 12      # so viele Meta-Titles pro »Optimieren«-Klick (RPM-Limit)
 
 # Scrollbalken der Tabellen dauerhaft anzeigen (vertikal + horizontal). Das Grid
