@@ -569,6 +569,10 @@ with tab_list:
         "CTR %": st.column_config.NumberColumn(format="%.2f %%"),
         "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
         "Begründung": st.column_config.TextColumn(width="large"),
+        # Die 3 Meta-Spalten schmaler halten (voller Text per Hover / Klick sichtbar).
+        "Keyword enthalten": st.column_config.TextColumn(width="small"),
+        "Meta Title aktuell": st.column_config.TextColumn(width="medium"),
+        "Meta Title neu (Vorschlag)": st.column_config.TextColumn(width="medium"),
     }
     if "CPC" in disp.columns:
         extra["CPC"] = st.column_config.TextColumn(
