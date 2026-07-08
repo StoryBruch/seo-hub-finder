@@ -309,6 +309,30 @@ def run_meta_analysis(selected_kw: pd.DataFrame, selected_pages: list,
                                 "had_key": bool(api_key), "summary": summary}
 
 
+def spread_promising_order(df, prom):
+    """Zeilen-Reihenfolge für die Anzeige: nach Seite gruppiert (Keywords einer
+    URL bleiben zusammen), aber die URLs mit einem grünen Keyword werden
+    gleichmäßig zwischen die übrigen verteilt — so stehen nie mehrere grüne
+    Zeilen dicht beieinander. Gibt eine Liste der df-Indizes zurück."""
+    green_groups, plain_groups = [], []
+    for _page, sub in df.groupby("page", sort=True):
+        idx = list(sub.sort_values("query").index)
+        (green_groups if bool(prom.loc[idx].any()) else plain_groups).append(idx)
+    if not green_groups:
+        return [i for g in plain_groups for i in g]
+    ratio = len(plain_groups) / len(green_groups)
+    order, pi = [], 0
+    for gi in range(len(green_groups)):
+        take = round((gi + 1) * ratio) - round(gi * ratio)  # ~gleichmäßig verteilen
+        for g in plain_groups[pi:pi + take]:
+            order += g
+        pi += take
+        order += green_groups[gi]
+    for g in plain_groups[pi:]:
+        order += g
+    return order
+
+
 # --------------------------------------------------------------------------- #
 # Sidebar
 # --------------------------------------------------------------------------- #
@@ -567,10 +591,12 @@ if len(visible) > MAX_KEYWORDS:
     st.warning(f"Sehr großer Datensatz — es werden die **{MAX_KEYWORDS:,}** Keywords "
                "mit dem höchsten Klick-Potenzial angezeigt.".replace(",", "."))
 
-# Standard-Sortierung, sobald Keywords vorliegen: nach Seite (URL) gruppiert,
-# darin alphabetisch nach Keyword. Nach Klick-Potenzial kann man per Spaltenkopf
-# umsortieren.
-visible = visible.sort_values(["page", "query"], kind="stable").reset_index(drop=True)
+# Standard-Reihenfolge: nach Seite gruppiert, aber grüne (vielversprechende)
+# Zeilen gleichmäßig verteilt, damit kein grüner Block entsteht. Per Spaltenkopf
+# (z. B. Klick-Potenzial) lässt sich jederzeit umsortieren.
+visible = visible.reset_index(drop=True)
+_prom = sdf.promising_mask(visible)
+visible = visible.loc[spread_promising_order(visible, _prom)].reset_index(drop=True)
 
 # --- Summary metrics ---------------------------------------------------------
 total_upside = int(visible["opportunity_score"].sum())
