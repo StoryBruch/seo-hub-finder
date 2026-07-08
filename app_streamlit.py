@@ -586,7 +586,7 @@ by_page = sdf.group_by_page(visible)
 # Especially promising / profitable rows (green highlight).
 kw_promising = sdf.promising_mask(visible)
 if not by_page.empty and by_page["total_upside"].max() > 0:
-    page_thr = by_page["total_upside"].quantile(0.8)
+    page_thr = by_page["total_upside"].quantile(0.85)  # Top 15 %
     page_promising = (by_page["total_upside"] >= page_thr) & (by_page["total_upside"] > 0)
 else:
     page_promising = pd.Series(False, index=by_page.index)
@@ -595,8 +595,7 @@ meta = st.session_state.get("meta")
 n_promising = int(kw_promising.sum())
 if n_promising:
     st.caption(f"🟢 **{n_promising} besonders vielversprechende Keyword(s)** sanft "
-               "grün hervorgehoben — höchstes Klick-Potenzial und/oder CTR-"
-               "Unterperformer (schneller Hebel per Title/Snippet). Nach "
+               "grün hervorgehoben — die **Top 15 %** nach Klick-Potenzial. Nach "
                "»Klick-Potenzial/28 Tage« sortieren zeigt sie oben.")
 if meta and meta.get("summary"):
     st.caption("📄 " + meta["summary"])

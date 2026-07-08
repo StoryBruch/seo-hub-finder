@@ -422,18 +422,13 @@ def parse_brand_terms(text) -> list:
     return [t.strip() for t in re.split(r"[,;\n]", str(text)) if t.strip()]
 
 
-def promising_mask(candidates: pd.DataFrame, top_frac: float = 0.2):
-    """Boolean Series: which candidates are *especially* promising / profitable.
+def promising_mask(candidates: pd.DataFrame, top_frac: float = 0.15):
+    """Boolean Series: the *especially* promising / profitable candidates.
 
-    Built purely from the metrics the analysis already produces (position →
-    expected CTR, impressions, clicks → `opportunity_score`; plus the CTR-
-    underperformer flag). A row is flagged when it is either:
-      • among the top `top_frac` by click upside (the biggest opportunities), or
-      • a CTR underperformer whose upside is in the upper quartile — a quick win
-        where a better title/snippet alone should capture clicks at the current
-        ranking. Kept to the upper quartile so the highlight stays a meaningful
-        minority rather than every underperformer.
-    Returns an all-False series when nothing has positive upside.
+    Flags the **top `top_frac`** (default 15%) by click upside — the biggest
+    opportunities, derived purely from position → expected CTR, impressions and
+    clicks (`opportunity_score`). Returns an all-False series when nothing has
+    positive upside.
     """
     if candidates is None or candidates.empty:
         return pd.Series([], dtype=bool)
@@ -441,12 +436,7 @@ def promising_mask(candidates: pd.DataFrame, top_frac: float = 0.2):
     if score.max() <= 0:
         return pd.Series(False, index=candidates.index)
     top_threshold = score.quantile(1 - top_frac)
-    upper_quartile = score.quantile(0.75)
-    mask = (score > 0) & (score >= top_threshold)
-    if "is_underperformer" in candidates.columns:
-        mask = mask | (candidates["is_underperformer"].fillna(False)
-                       & (score >= upper_quartile) & (score > 0))
-    return mask
+    return (score > 0) & (score >= top_threshold)
 
 
 # --------------------------------------------------------------------------- #

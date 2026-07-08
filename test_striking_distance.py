@@ -397,13 +397,13 @@ class PromisingMaskTests(unittest.TestCase):
         self.assertTrue(mask.iloc[-1])          # the 100-upside row
         self.assertFalse(mask.iloc[0])          # the 1-upside row
 
-    def test_underperformer_quick_win_flagged(self):
+    def test_only_top_band_flagged(self):
         df = pd.DataFrame({
             "opportunity_score": [10, 10, 10, 10, 50],
-            "is_underperformer": [True, False, False, False, False]})
+            "is_underperformer": [True, False, False, False, True]})
         mask = sdf.promising_mask(df, top_frac=0.2)
-        self.assertTrue(mask.iloc[0])           # underperformer w/ >=median upside
         self.assertTrue(mask.iloc[-1])          # top upside
+        self.assertFalse(mask.iloc[0])          # low upside -> not flagged (even if underperformer)
 
 
 class TitleStatusLabelTests(unittest.TestCase):
