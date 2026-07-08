@@ -1,0 +1,3 @@
+# Statische Dateien (z. B. den Lebenslauf) unter app/static/ ausliefern.
+[server]
+enableStaticServing = true

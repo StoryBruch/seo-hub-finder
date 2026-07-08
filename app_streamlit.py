@@ -372,6 +372,15 @@ def show_help():
         Das Tool zeigt dir Suchbegriffe, bei denen du bei Google **knapp vor Seite 1
         / den Top-Plätzen** stehst — also dort, wo sich Arbeit am meisten lohnt.
 
+        ### So legst du los
+        1. Links **Demo-Daten** wählen *oder* deine **eigene GSC-CSV hochladen**.
+        2. Auf **🚀 START** drücken – erst dann wird ausgewertet und die Tabelle erscheint.
+
+        **Muss ich vorher die Filter setzen?** Nein – egal ob **vor oder nach** dem Start.
+        Nach dem Start aktualisiert sich die Tabelle bei **jeder Filter-Änderung
+        automatisch**; du musst *nicht* erneut auf START drücken. Nur wenn du die
+        **Datenquelle wechselst** (Demo ↔ eigene CSV), fängst du wieder mit START an.
+
         ### TL;DR – die wichtigsten Hebel
         - **Grün hinterlegte Zeilen = die vielversprechendsten Keywords.** Über die
           Spalte **»Klick-Potenzial/28 Tage«** sortieren (Klick auf den Spaltenkopf),
@@ -451,11 +460,19 @@ def show_help():
     )
 
 
-col_help, _ = st.columns([2, 3])
+col_help, _spacer, col_cv = st.columns([2, 2, 1.4])
 with col_help:
     if st.button("❓ So funktioniert's – Erklärung & Dokumentation",
                  width="stretch", type="primary"):
         show_help()
+with col_cv:
+    st.markdown(
+        '<div style="text-align:right;">'
+        '<a href="app/static/lebenslauf.html" target="_blank" rel="noopener" '
+        'style="display:inline-block;background:#6f3d2d;color:#ffffff;'
+        'text-decoration:none;padding:0.55rem 1.15rem;border-radius:0.5rem;'
+        'font-weight:700;white-space:nowrap;">📄 Mein Lebenslauf</a></div>',
+        unsafe_allow_html=True)
 
 st.title("Striking Distance Finder")
 st.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen — mit den "
@@ -467,7 +484,10 @@ st.info(
     "(oder **Demo-Daten** verwenden).\n"
     f"- Maximal **{MAX_META_PER_RUN}** Meta-Titles auf einmal optimieren lassen.\n"
     "- Bitte nur GSC-Exporte mit Zeitraum **letzte 28 Tage** hochladen "
-    "(darauf sind die Filter abgestimmt)."
+    "(darauf sind die Filter abgestimmt).\n"
+    "- **Loslegen:** Demo-Daten oder eigene GSC-CSV wählen und auf **🚀 START** "
+    "drücken. Die **Filter** kannst du vor oder nach dem Start ändern — die Tabelle "
+    "aktualisiert sich automatisch (nur beim Wechsel der Datenquelle erneut START)."
 )
 
 if not st.session_state.get("started"):

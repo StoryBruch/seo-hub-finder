@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Jens Steinert - CV Agentic Workflows &amp; SEO Growth</title>
+<style>
+  :root{
+    --paper:#fbf8f4; --paper2:#f4ebe5; --ink:#1f2528; --muted:#6f625b; --line:#e1d1c8;
+    --accent:#b86f4f; --accent2:#d89b7f; --accent-dark:#6f3d2d; --card:#fffaf7;
+  }
+  *{box-sizing:border-box}
+  html, body{margin:0; padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.62;}
+  .doc{max-width:297mm;margin:0 auto;background:var(--paper);}
+  .page{width:297mm;height:210mm;background:var(--paper);position:relative;overflow:hidden;padding:7.5mm 10mm;border:0;page-break-after:always;break-after:page;}
+  .page:last-child{page-break-after:auto}
+  .page:before{display:none;}
+  .content{position:relative;z-index:1}
+  .top{display:grid;grid-template-columns:minmax(0,1fr) 84mm;gap:10mm;padding-bottom:4mm;border-bottom:1px solid var(--line);align-items:start;}
+  .identity{display:flex;gap:8mm;align-items:center;min-width:0;}
+  .avatar-wrap{width:28mm;height:28mm;border-radius:50%;overflow:hidden;border:1.15mm solid #ead1c3;background:#fff;box-shadow:0 2.5mm 7mm rgba(90,55,40,.16);flex:0 0 auto;}
+  .avatar{width:100%;height:100%;object-fit:cover;object-position:center 34%;transform:scale(1.03);display:block;}
+  h1{font-family:Georgia,"Times New Roman",serif;margin:0;font-size:38px;letter-spacing:-.04em;line-height:1.2;color:#261b17;}
+  .role{margin:5px 0 7px;color:var(--accent-dark);font-weight:900;font-size:19.8px;line-height:1.4}
+  .tags{display:flex;flex-wrap:wrap;column-gap:6px;row-gap:5px;margin-top:10px}
+  .tag{padding:4px 9px;background:#f0e1d8;border:1px solid #e2c9bb;border-radius:999px;color:var(--accent-dark);font-size:14.2px;font-weight:850;text-transform:uppercase;letter-spacing:.055em;white-space:nowrap;line-height:1.3;}
+  .pitch{margin:3.5mm 0 0 32mm;padding:3.5mm 4.5mm;border:1px solid var(--line);border-radius:4.5mm;background:rgba(255,250,247,.72);font:500 18.2px/1.55 Georgia,"Times New Roman",serif;color:#2a201d;max-width:160mm;}
+  .side{text-align:right;color:var(--muted);font-size:15.4px;line-height:1.52;display:grid;gap:4.3mm;}
+  .contact{display:grid;gap:2.5px}
+  .contact b{color:var(--ink)}
+  .edu{border-top:1px solid var(--line);padding-top:3.2mm;display:grid;gap:2.6mm;}
+  .eduitem b{font-size:15.3px;color:var(--ink);display:block;line-height:1.38}
+  .eduitem span{font-size:13.6px;color:var(--muted);display:block;line-height:1.44}
+
+  h2{font-family:Georgia,"Times New Roman",serif;font-size:27px;margin:0 0 9px;letter-spacing:-.025em;color:#2a201d;line-height:1.32;}
+  h3{font-family:Georgia,"Times New Roman",serif;font-size:20px;margin:0 0 7px;color:#2a201d;line-height:1.36;}
+  .card{background:rgba(255,250,247,.86);border:1px solid var(--line);border-radius:5mm;padding:3.8mm;}
+  .main-grid{display:grid;grid-template-columns:1fr 1fr;gap:4.5mm;margin-top:40px;}
+  .timeline{display:grid;gap:0}
+  .job{display:grid;grid-template-columns:25mm 1fr;gap:4.5mm;padding:2.35mm 0;border-top:1px solid var(--line)}
+  .job:first-child{border-top:0;padding-top:0}
+  .year{font-size:15.3px;font-weight:950;color:var(--accent);line-height:1.48;}
+  .job-title{font-size:17px;font-weight:950;color:var(--ink);margin-bottom:1.5mm;line-height:1.4;}
+  .job-desc{color:var(--muted);font-size:15.8px;line-height:1.52;}
+  .skillgrid{display:grid;gap:2.2mm}
+  .skill{display:grid;grid-template-columns:8.8mm 1fr;gap:3.3mm;align-items:start;padding:2.65mm;border:1px solid var(--line);border-radius:4mm;background:#fffaf7;min-height:14.5mm;}
+  .ico{width:8.8mm;height:8.8mm;border-radius:2.7mm;display:grid;place-items:center;background:#f0dfd5;color:var(--accent-dark);font-weight:950;font-size:17.5px;}
+  .skill b{font-size:16.7px;display:block;line-height:1.42;}
+  .skill span{font-size:15.6px;line-height:1.48;color:var(--muted);display:block;margin-top:1.1mm;}
+
+  .tools-card{margin-top:3.5mm;padding:3.6mm 4.2mm 3.6mm;}
+  .tools-layout{display:grid;grid-template-columns:1.15fr .7fr .95fr;gap:2.6mm;margin-top:2mm;}
+  .tools-layout.second{grid-template-columns:1.76fr .74fr;margin-top:2.4mm;}
+  .toolbox{border:1px solid var(--line);background:#fffaf7;border-radius:3.5mm;padding:2.8mm;min-height:15mm;}
+  .toolbox>b{display:block;font-size:15.2px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);font-weight:950;margin-bottom:1.6mm;line-height:1.35;}
+  .tools{display:flex;flex-wrap:wrap;gap:2mm;align-items:flex-start;}
+  .tool{display:inline-block;padding:1.7mm 2.7mm;font-size:14.9px;background:#f0e4dd;border:1px solid #e1d2c9;border-radius:999px;color:#6a5147;font-weight:850;line-height:1.3;white-space:nowrap;}
+
+  .section-title{display:flex;justify-content:space-between;align-items:end;gap:11mm;margin-bottom:5.5mm;}
+  .eyebrow{font-size:14.2px;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:1.8mm;line-height:1.38;}
+  .casegrid{display:grid;grid-template-columns:1fr 1fr;gap:5mm;}
+  .case{background:rgba(255,250,247,.88);border:1px solid var(--line);border-radius:5.5mm;padding:5mm;min-height:83mm;display:flex;flex-direction:column;justify-content:space-between;}
+  .case-meta{font-size:14px;text-transform:uppercase;letter-spacing:.09em;font-weight:950;color:var(--accent);line-height:1.42;}
+  .case .big{font:900 36px/1.23 Georgia,"Times New Roman",serif;color:var(--accent);letter-spacing:-.04em;margin:2.3mm 0;}
+  .case p{margin:0;color:var(--muted);font-size:16.6px;line-height:1.62;}
+  .minirow{display:grid;grid-template-columns:repeat(4,1fr);gap:2.4mm;margin-top:3.5mm;}
+  .mini{border:1px solid var(--line);background:#fffaf7;border-radius:3mm;padding:2.7mm;}
+  .mini b{font:900 23.5px Georgia,serif;color:var(--accent);display:block;line-height:1.23;}
+  .mini span{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:900;margin-top:1.4mm;display:block;line-height:1.34;}
+  .brandchips{display:flex;flex-wrap:wrap;gap:2mm;margin-top:3.5mm;}
+  .brandchips span{padding:1.9mm 2.8mm;background:#f0e4dd;border:1px solid #e1d2c9;border-radius:999px;font-size:14.8px;color:#6a5147;font-weight:850;line-height:1.3;}
+  .note{position:absolute;left:11mm;bottom:5mm;color:#9a887e;font-size:13.8px;z-index:2;line-height:1.38;}
+  .page-num{position:absolute;right:11mm;bottom:5mm;color:#c1aa9f;font-size:14.8px;font-weight:950;z-index:2;}
+
+
+  .tools-case-page .tools-card{margin-top:0;padding:3mm 3.5mm 3.1mm;}
+  .tools-case-page .tools-layout{gap:2.1mm;margin-top:1.45mm;}
+  .tools-case-page .tools-layout.second{margin-top:1.75mm;}
+  .tools-case-page .toolbox{min-height:12mm;padding:2.15mm;}
+  .tools-case-page .toolbox>b{margin-bottom:1.15mm;}
+  .tools-case-page .tools{gap:1.6mm;}
+  .tools-case-page .tool{padding:1.35mm 2.35mm;}
+  .tools-case-page .cases-title{display:block;margin-top:70px;margin-bottom:1mm;}
+  .tools-case-page .cases-title h2{margin-bottom:0;line-height:1.18;}
+  .tools-case-page .cases-title .eyebrow{margin-bottom:1mm;}
+  .tools-case-page .casegrid{gap:4mm;}
+  .tools-case-page .case{min-height:65mm;padding:4mm;}
+  .tools-case-page .case .big{margin:1.45mm 0;}
+  .tools-case-page .minirow{margin-top:2.4mm;gap:1.9mm;}
+  .tools-case-page .mini{padding:2.05mm;}
+  .cases-cont-page .case{min-height:70mm;position:relative;z-index:40;overflow:visible;padding-top:4.6mm;}
+  .cases-cont-page .casegrid{gap:4mm;transform:translateY(-18px);position:relative;z-index:30;}
+.cases-cont-page .brandchips{margin-top:2.4mm;gap:1.7mm;}
+
+  .cases-cont-page .casegrid{gap:4mm;transform:translateY(-18px);position:relative;z-index:30;}
+  .cases-cont-page .case{position:relative;z-index:40;overflow:visible;}
+  .cases-cont-page .case > div:first-child{position:relative;z-index:60;}
+  .cases-cont-page .case-meta,
+  .cases-cont-page .case > div:first-child > p:first-child{position:relative;z-index:80;}
+
+  .cases-cont-page .brands-case .brands-headline{position:relative;z-index:90;margin:0 0 2.2mm;line-height:1.18;}
+  .cases-cont-page .brands-case p{position:relative;z-index:70;}
+  .cases-cont-page .brands-case .brandchips{position:relative;z-index:70;}
+
+  @page{size:A4 landscape;margin:0}
+  @media print{body{background:var(--paper)} .doc{max-width:none;background:var(--paper)} .page{border-radius:0;margin:0;box-shadow:none;background:var(--paper)} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<div class="doc">
+<section class="page">
+<div class="content">
+<div class="top">
+<div>
+<div class="identity">
+<div class="avatar-wrap"><img alt="Jens Steinert" class="avatar" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAYEBAUEBAUFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCACgAIADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8qqKKKAP2qooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//2Q=="/></div>
+<div>
+<h1>Jens Steinert</h1>
+<div class="role">Agentic Workflows &amp; SEO Growth Stratege</div>
+<div class="tags"><span class="tag">8+ Jahre SEO-Erfahrung</span><span class="tag">Tag 1: KI Workflows</span><span class="tag">Fully Remote: 11 Jahre</span></div>
+</div>
+</div>
+<p class="pitch">Als das erste LLM live gegangen ist, war ich am Drücker. Seitdem lerne ich jeden Tag dazu und optimiere meine SEO- &amp; Content-Arbeit durch automatisierte Prozesse.</p>
+</div>
+<div class="side">
+<div class="contact"><div><b>E-Mail:</b> jensphilosteinert@gmail.com</div><div><b>Telefon:</b> +49 157 834 594 49</div></div>
+<div class="edu">
+<div class="eduitem"><b>🎓 B.A. Communications</b><span>SRH Hochschule Berlin</span></div>
+<div class="eduitem"><b>🎓 SEO Training</b><span>bei Steve Toth</span></div>
+<div class="eduitem"><b>🎓 CRO Training</b><span>bei Nils Kattau</span></div>
+<div class="eduitem"><b>🎓 Immobilienkaufmann (IHK)</b><span>inkl. Business &amp; Management College (London ECBM)</span></div>
+</div>
+</div>
+</div>
+<div class="main-grid">
+<div class="card">
+<h2>Werdegang</h2>
+<div class="timeline">
+<div class="job"><div class="year">2023 - heute</div><div><div class="job-title">Head of SEO - Coffeeness Blog &amp; Shop</div><div class="job-desc">SEO-Strategie, Mitarbeiter-Trainings, KI-Automation, Keywords &amp; Hubs, OnPage-Optimization</div></div></div>
+<div class="job"><div class="year">2021 - 2022</div><div><div class="job-title">SEO Manager - Cloudwards &amp; Coffeeness</div><div class="job-desc">Content-Operations, Programmatic SEO &amp; Growth-Strategie, Keywords &amp; Briefings</div></div></div>
+<div class="job"><div class="year">2016 - 2020</div><div><div class="job-title">Content &amp; PR; Texter; SEO</div><div class="job-desc">Vodafone, McMakler, Linus Finance, Urbyo, MYNE Homes, PrivacyTutor, Bürgermeister Berlin.</div></div></div>
+</div>
+</div>
+<div class="card">
+<h2>Kernkompetenzen</h2>
+<div class="skillgrid">
+<div class="skill"><div class="ico">⚡</div><div><b>KI-Automatisierung</b><span>Agentic Workflows &amp; Skalierung, Briefing-Automation, Page &amp; Image Creation, Prozessoptimierung</span></div></div>
+<div class="skill"><div class="ico">📈</div><div><b>SEO Strategy &amp; Organic Growth</b><span>Data-Driven mit ROI-Fokus, Semantischer Keyword Research (Cluster), Schema-Markup</span></div></div>
+<div class="skill"><div class="ico">🏛</div><div><b>Content Architecture</b><span>Topical Authority Hubs, Intent-Mapping, CR-optimierte Landingpages, UX-Writing &amp; -Design</span></div></div>
+</div>
+</div>
+</div>
+
+</div>
+
+</section>
+<section class="page tools-case-page"><div class="content"><div class="card tools-card">
+<h3>Tools &amp; Tech</h3>
+<div class="tools-layout">
+<div class="toolbox"><b>SEO</b><div class="tools"><span class="tool">ahrefs</span><span class="tool">SEMrush</span><span class="tool">Screaming Frog</span><span class="tool">SurferSEO</span></div></div>
+<div class="toolbox"><b>Google</b><div class="tools"><span class="tool">GSC</span><span class="tool">GA4</span></div></div>
+<div class="toolbox"><b>Automation</b><div class="tools"><span class="tool">N8N</span><span class="tool">Make</span><span class="tool">Zapier</span></div></div>
+</div>
+<div class="tools-layout second">
+<div class="toolbox"><b>KI</b><div class="tools"><span class="tool">OpenAI (DALL·E, ChatGPT)</span><span class="tool">Claude/Claude Code</span><span class="tool">Midjourney</span><span class="tool">NotebookLM</span><span class="tool">Perplexity AI</span><span class="tool">Adobe Firefly</span></div></div>
+<div class="toolbox"><b>Sonstiges</b><div class="tools"><span class="tool">GitHub</span><span class="tool">WordPress</span></div></div>
+</div>
+</div>
+<div class="section-title cases-title"><div><div class="eyebrow">Ausgewählte Cases</div><h2>Proof Points</h2></div></div><div class="casegrid"><div class="case">
+<div>
+<div class="case-meta">Coffeeness | Affiliate Content Marketing</div>
+<div class="big">18K Top-3</div>
+<p>Top-3-Rankings seit 01/2023 von 7.070 auf 18.039 ausgebaut (+155%). Architektur rund um Kaffeevollautomaten, Siebträger, Bohnen, Rezepte und Modell-/Hersteller-Suchen.</p>
+</div>
+<div class="minirow"><div class="mini"><b>5,76M</b><span>GSC-Klicks</span></div><div class="mini"><b>329,8M</b><span>Impressions</span></div><div class="mini"><b>1.691</b><span>Org. Seiten</span></div><div class="mini"><b>Intl.</b><span>EN/NL/ES</span></div></div>
+</div><div class="case">
+<div>
+<div class="case-meta">Coffeeness Shop | E- &amp; Content-Commerce</div>
+<div class="big">+154%</div>
+<p>Wöchentliche GSC-Klicks im Shop von ca. 610 auf 1.548 erhöht; geschätzter Shop-Traffic seit 01/2025 von 5.441 auf 12.933/Monat (+138%).</p>
+</div>
+<div class="minirow"><div class="mini"><b>97K</b><span>Klicks</span></div><div class="mini"><b>6,4M</b><span>Impressions</span></div><div class="mini"><b>367</b><span>Top-3</span></div><div class="mini"><b>9,5</b><span>Avg Pos.</span></div></div>
+</div></div></div></section>
+<section class="page cases-cont-page"><div class="content"><div class="casegrid"><div class="case">
+<div>
+<div class="case-meta">Cloudwards - Content Scale</div>
+<div class="big">+770%</div>
+<p>Großer Teamerfolg im Cloudwards-Growth-Zyklus 2021-2022: Organic Traffic von geschätzt 77K auf 666K/Monat gesteigert; Top-3-Rankings von 12K auf 33K ausgebaut. Mein Beitrag: SEO-Strategie, Briefings, SERP-Analysen und Content-Operations als Teil des Growth-Teams.</p>
+</div>
+<div class="minirow"><div class="mini"><b>77K</b><span>Start</span></div><div class="mini"><b>666K</b><span>Monat</span></div><div class="mini"><b>33K</b><span>Top-3</span></div><div class="mini"><b>EN</b><span>PUBLISHER</span></div></div>
+</div><div class="case brands-case">
+<div>
+<div class="big brands-headline">10+ Brands</div>
+<p>Erfahrung in E-Commerce &amp; Content-Affiliate-Marketing, Real Estate, Fintech, Telco, PropTech und Cybersecurity.</p>
+<div class="brandchips"><span>Coffeeness</span><span>Vodafone</span><span>MYNE Homes</span><span>Linus Finance</span><span>Urbyo</span><span>McMakler</span><span>Bürgermeister Berlin</span><span>Cloudwards</span><span>PrivacyTutor</span><span>familie redlich AG</span></div>
+</div>
+</div></div></div></section>
+</div>
+</body>
+</html>
