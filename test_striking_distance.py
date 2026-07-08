@@ -383,6 +383,29 @@ class FetchMetaTitleTests(unittest.TestCase):
         self.assertEqual(set(result), {"https://a.com", "https://b.com"})  # de-duped
 
 
+class PromisingMaskTests(unittest.TestCase):
+    def test_empty(self):
+        self.assertTrue(sdf.promising_mask(pd.DataFrame()).empty)
+
+    def test_all_zero_upside_none_promising(self):
+        df = pd.DataFrame({"opportunity_score": [0, 0, 0]})
+        self.assertFalse(sdf.promising_mask(df).any())
+
+    def test_top_upside_flagged(self):
+        df = pd.DataFrame({"opportunity_score": [1, 2, 3, 4, 100]})
+        mask = sdf.promising_mask(df, top_frac=0.2)
+        self.assertTrue(mask.iloc[-1])          # the 100-upside row
+        self.assertFalse(mask.iloc[0])          # the 1-upside row
+
+    def test_underperformer_quick_win_flagged(self):
+        df = pd.DataFrame({
+            "opportunity_score": [10, 10, 10, 10, 50],
+            "is_underperformer": [True, False, False, False, False]})
+        mask = sdf.promising_mask(df, top_frac=0.2)
+        self.assertTrue(mask.iloc[0])           # underperformer w/ >=median upside
+        self.assertTrue(mask.iloc[-1])          # top upside
+
+
 class TitleStatusLabelTests(unittest.TestCase):
     def test_ok_is_empty(self):
         self.assertEqual(sdf.title_status_label("ok"), "")

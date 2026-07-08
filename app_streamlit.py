@@ -162,7 +162,29 @@ def selected_indices(editor_key: str) -> list:
     return sorted(int(i) for i, ch in edited.items() if ch.get(SELECT_COL))
 
 
-def render_selectable_table(frame: pd.DataFrame, gray_cols, key, extra_cfg=None):
+GRAY_BG = "background-color: #eceef3"
+GREEN_BG = "background-color: #dff2d8"  # sanftes Grün für vielversprechende Zeilen
+
+
+def _style_frame(frame: pd.DataFrame, gray_cols, promising):
+    """Styles df: gray meta columns; soft-green rows flagged as promising.
+
+    Green wins over gray on a promising row. Only non-editable columns are
+    styled (Streamlit ignores styles on the editable checkbox column anyway).
+    """
+    styles = pd.DataFrame("", index=frame.index, columns=frame.columns)
+    for col in gray_cols:
+        styles[col] = GRAY_BG
+    if promising is not None and len(promising):
+        prom = pd.Series(list(promising), index=frame.index).fillna(False)
+        for col in frame.columns:
+            if col != SELECT_COL:
+                styles.loc[prom, col] = GREEN_BG
+    return styles
+
+
+def render_selectable_table(frame: pd.DataFrame, gray_cols, key, extra_cfg=None,
+                            promising=None):
     """Render a data_editor whose only editable column is the select checkbox."""
     cfg = {
         SELECT_COL: st.column_config.CheckboxColumn(
@@ -176,10 +198,12 @@ def render_selectable_table(frame: pd.DataFrame, gray_cols, key, extra_cfg=None)
     for col in gray_cols:  # give the meta columns room to read
         cfg.setdefault(col, st.column_config.TextColumn(width="large"))
     disabled = [c for c in frame.columns if c != SELECT_COL]
+    has_green = promising is not None and bool(pd.Series(list(promising)).any()) \
+        if promising is not None else False
     data = frame
-    if gray_cols:  # gray shading applies to disabled columns (Streamlit rule)
-        data = frame.style.set_properties(subset=gray_cols,
-                                          **{"background-color": "#eceef3"})
+    if gray_cols or has_green:  # styling applies to disabled columns (Streamlit rule)
+        styles = _style_frame(frame, gray_cols, promising)
+        data = frame.style.apply(lambda _df: styles, axis=None)
     return st.data_editor(data, key=key, hide_index=True, width="stretch",
                           height=TABLE_HEIGHT, column_config=cfg, disabled=disabled)
 
@@ -445,6 +469,21 @@ if meta and meta.get("kw_suggestions") == {} and meta.get("page_suggestions") ==
     st.caption("Titel-Vorschläge sind leer, weil kein Gemini-Key hinterlegt ist — "
                "Keyword-Check und aktueller Title sind trotzdem gefüllt.")
 
+# Especially promising / profitable rows (green highlight).
+kw_promising = sdf.promising_mask(visible)
+if not by_page.empty and by_page["total_upside"].max() > 0:
+    page_thr = by_page["total_upside"].quantile(0.8)
+    page_promising = (by_page["total_upside"] >= page_thr) & (by_page["total_upside"] > 0)
+else:
+    page_promising = pd.Series(False, index=by_page.index)
+
+n_promising = int(kw_promising.sum())
+if n_promising:
+    st.caption(f"🟢 **{n_promising} besonders vielversprechende Keyword(s)** sanft "
+               "grün hervorgehoben — höchstes Klick-Potenzial und/oder CTR-"
+               "Unterperformer (schneller Hebel per Title/Snippet). Zahlengrundlage: "
+               "Position, Impressionen, Klicks & CTR.")
+
 # --- Tabs --------------------------------------------------------------------
 tab_list, tab_pages = st.tabs(["📋 Keyword-Liste", "🗂️ Nach Seite gruppiert"])
 
@@ -455,7 +494,8 @@ with tab_list:
         "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
         "Begründung": st.column_config.TextColumn(width="large"),
     }
-    render_selectable_table(disp, gray, key="kw_editor", extra_cfg=extra)
+    render_selectable_table(disp, gray, key="kw_editor", extra_cfg=extra,
+                            promising=kw_promising.tolist())
     st.download_button(
         "⬇️ Liste als CSV herunterladen",
         disp.drop(columns=[SELECT_COL]).to_csv(index=False).encode("utf-8-sig"),
@@ -468,7 +508,8 @@ with tab_pages:
     page_disp, page_gray = page_frame(by_page, meta=meta)
     render_selectable_table(
         page_disp, page_gray, key="page_editor",
-        extra_cfg={"Top-Keywords": st.column_config.TextColumn(width="large")})
+        extra_cfg={"Top-Keywords": st.column_config.TextColumn(width="large")},
+        promising=page_promising.tolist())
 
 st.divider()
 st.caption("Striking Distance Finder · GSC-basiert · CTR-Baseline aus deinen "
