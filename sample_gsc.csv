@@ -1,36 +1,201 @@
 Query,Page,Clicks,Impressions,CTR,Position
-kaffeevollautomat test,https://kaffee-guru.example/kaffeevollautomat-test,40,3200,1.25%,6.4
-bester kaffeevollautomat,https://kaffee-guru.example/kaffeevollautomat-test,24,1900,1.26%,8.1
-kaffeevollautomat testsieger,https://kaffee-guru.example/kaffeevollautomat-test,30,1200,2.50%,5.6
-kaffeevollautomat kaufen,https://kaffee-guru.example/kaffeevollautomat-test,10,800,1.25%,11.2
-espressomaschine test,https://kaffee-guru.example/espressomaschine-test,30,2100,1.43%,7.2
-beste espressomaschine,https://kaffee-guru.example/espressomaschine-test,18,1300,1.38%,9.4
-espressomaschine mit mahlwerk,https://kaffee-guru.example/espressomaschine-test,9,700,1.29%,12.1
-espressomaschine siebträger,https://kaffee-guru.example/espressomaschine-test,26,950,2.74%,5.8
-milchaufschäumer test,https://kaffee-guru.example/milchaufschaeumer-test,92,1800,5.11%,5.2
-bester milchaufschäumer,https://kaffee-guru.example/milchaufschaeumer-test,40,1100,3.64%,6.9
-milchaufschäumer elektrisch,https://kaffee-guru.example/milchaufschaeumer-test,29,1150,2.52%,8.4
-kaffeebohnen test,https://kaffee-guru.example/kaffeebohnen-test,34,2600,1.31%,7.0
-beste kaffeebohnen,https://kaffee-guru.example/kaffeebohnen-test,12,900,1.33%,10.3
-kaffeebohnen kaufen,https://kaffee-guru.example/kaffeebohnen-test,60,1400,4.29%,5.9
-kaffeemühle test,https://kaffee-guru.example/kaffeemuehle-test,22,1000,2.20%,7.1
-beste kaffeemühle,https://kaffee-guru.example/kaffeemuehle-test,18,1500,1.20%,9.3
-kaffeemühle elektrisch,https://kaffee-guru.example/kaffeemuehle-test,26,980,2.65%,6.2
-french press test,https://kaffee-guru.example/french-press-test,61,1650,3.70%,5.6
-french press vergleich,https://kaffee-guru.example/french-press-test,14,700,2.00%,8.8
-kaffeevollautomat günstig,https://kaffee-guru.example/kaffeevollautomat-guenstig,12,1400,0.86%,12.9
-kaffeevollautomat reinigen,https://kaffee-guru.example/kaffeevollautomat-reinigen,55,2000,2.75%,7.3
-kaffeepadmaschine test,https://kaffee-guru.example/kaffeepadmaschine-test,22,1300,1.69%,8.8
-siebträgermaschine test,https://kaffee-guru.example/siebtraeger-test,96,2400,4.00%,6.8
-wie viel koffein hat kaffee,https://kaffee-guru.example/blog/koffein-kaffee,64,1400,4.57%,6.7
-kaffee gesund,https://kaffee-guru.example/blog/kaffee-gesund,120,2200,5.45%,5.1
-kaffeesatz düngen,https://kaffee-guru.example/blog/kaffeesatz-duengen,50,1500,3.33%,8.4
-kaffee-guru erfahrungen,https://kaffee-guru.example/marke/erfahrungen,30,400,7.50%,4.5
-kaffee-guru test,https://kaffee-guru.example/marke/test,20,300,6.67%,6.1
-kaffee-guru gutschein,https://kaffee-guru.example/marke/gutschein,15,220,6.82%,8.3
-kaffeevollautomat,https://kaffee-guru.example/kaffeevollautomat,940,3400,27.65%,1.3
-espressomaschine,https://kaffee-guru.example/espressomaschine,610,2600,23.46%,1.9
-milchaufschäumer,https://kaffee-guru.example/milchaufschaeumer,510,2300,22.17%,1.6
-kaffee abo,https://kaffee-guru.example/kaffee-abo,5,200,2.50%,22.0
-kaffeevollautomat mit festwasseranschluss,https://kaffee-guru.example/nische-1,0,14,0.00%,17.5
-espressomaschine zweikreiser handhebel,https://kaffee-guru.example/nische-2,0,9,0.00%,19.1
+kaffeevollautomat test,https://kaffee-guru.example/kaffeevollautomat-test,15,402,3.73%,6.9
+bester kaffeevollautomat,https://kaffee-guru.example/kaffeevollautomat-test,35,719,4.87%,7.0
+kaffeevollautomat testsieger,https://kaffee-guru.example/kaffeevollautomat-test,11,984,1.12%,6.3
+kaffeevollautomat kaufen,https://kaffee-guru.example/kaffeevollautomat-test,16,1352,1.18%,8.4
+kaffeevollautomat guenstig,https://kaffee-guru.example/kaffeevollautomat-test,19,1236,1.54%,14.4
+kaffeevollautomat mit mahlwerk,https://kaffee-guru.example/kaffeevollautomat-test,3,133,2.26%,9.0
+kaffeevollautomat vergleich,https://kaffee-guru.example/kaffeevollautomat-test,8,689,1.16%,11.1
+espressomaschine test,https://kaffee-guru.example/espressomaschine-test,46,679,6.77%,5.6
+beste espressomaschine,https://kaffee-guru.example/espressomaschine-test,39,1383,2.82%,10.0
+espressomaschine mit mahlwerk,https://kaffee-guru.example/espressomaschine-test,4,895,0.45%,12.8
+espressomaschine siebtraeger,https://kaffee-guru.example/espressomaschine-test,14,860,1.63%,14.1
+espressomaschine kaufen,https://kaffee-guru.example/espressomaschine-test,51,586,8.70%,5.7
+espressomaschine testsieger,https://kaffee-guru.example/espressomaschine-test,3,326,0.92%,17.4
+siebtraegermaschine test,https://kaffee-guru.example/siebtraegermaschine-test,35,966,3.62%,7.8
+beste siebtraegermaschine,https://kaffee-guru.example/siebtraegermaschine-test,133,3099,4.29%,8.9
+siebtraegermaschine kaufen,https://kaffee-guru.example/siebtraegermaschine-test,9,621,1.45%,7.5
+siebtraegermaschine einsteiger,https://kaffee-guru.example/siebtraegermaschine-test,3,1260,0.24%,19.3
+siebtraegermaschine guenstig,https://kaffee-guru.example/siebtraegermaschine-test,0,234,0.00%,16.1
+kaffeemuehle test,https://kaffee-guru.example/kaffeemuehle-test,47,1396,3.37%,5.6
+beste kaffeemuehle,https://kaffee-guru.example/kaffeemuehle-test,53,3240,1.64%,13.2
+kaffeemuehle elektrisch,https://kaffee-guru.example/kaffeemuehle-test,8,1059,0.76%,10.7
+kaffeemuehle mit mahlwerk,https://kaffee-guru.example/kaffeemuehle-test,7,1223,0.57%,15.8
+kaffeemuehle kaufen,https://kaffee-guru.example/kaffeemuehle-test,9,937,0.96%,18.0
+kaffeemuehle testsieger,https://kaffee-guru.example/kaffeemuehle-test,12,1130,1.06%,7.0
+milchaufschaeumer test,https://kaffee-guru.example/milchaufschaeumer-test,84,2870,2.93%,4.7
+bester milchaufschaeumer,https://kaffee-guru.example/milchaufschaeumer-test,35,1876,1.87%,13.6
+milchaufschaeumer elektrisch,https://kaffee-guru.example/milchaufschaeumer-test,15,1253,1.20%,12.7
+milchaufschaeumer induktion,https://kaffee-guru.example/milchaufschaeumer-test,21,1219,1.72%,15.5
+milchaufschaeumer kaufen,https://kaffee-guru.example/milchaufschaeumer-test,18,721,2.50%,9.9
+french press test,https://kaffee-guru.example/french-press-test,49,3247,1.51%,8.3
+french press vergleich,https://kaffee-guru.example/french-press-test,27,735,3.67%,7.6
+beste french press,https://kaffee-guru.example/french-press-test,7,1367,0.51%,14.3
+french press edelstahl,https://kaffee-guru.example/french-press-test,52,1206,4.31%,7.3
+french press kaufen,https://kaffee-guru.example/french-press-test,6,349,1.72%,12.1
+kaffeepadmaschine test,https://kaffee-guru.example/kaffeepadmaschine-test,19,1559,1.22%,7.8
+beste kaffeepadmaschine,https://kaffee-guru.example/kaffeepadmaschine-test,3,622,0.48%,13.2
+kaffeepadmaschine kaufen,https://kaffee-guru.example/kaffeepadmaschine-test,42,1210,3.47%,6.0
+kaffeepadmaschine guenstig,https://kaffee-guru.example/kaffeepadmaschine-test,12,1245,0.96%,11.9
+filterkaffeemaschine test,https://kaffee-guru.example/filterkaffeemaschine-test,53,1167,4.54%,6.8
+beste filterkaffeemaschine,https://kaffee-guru.example/filterkaffeemaschine-test,60,3220,1.86%,15.0
+filterkaffeemaschine mit mahlwerk,https://kaffee-guru.example/filterkaffeemaschine-test,15,1017,1.47%,14.4
+filterkaffeemaschine thermoskanne,https://kaffee-guru.example/filterkaffeemaschine-test,11,251,4.38%,8.6
+filterkaffeemaschine kaufen,https://kaffee-guru.example/filterkaffeemaschine-test,10,571,1.75%,8.3
+kapselmaschine test,https://kaffee-guru.example/kapselmaschine-test,48,576,8.33%,4.5
+beste kapselmaschine,https://kaffee-guru.example/kapselmaschine-test,19,1274,1.49%,6.0
+kapselmaschine kaufen,https://kaffee-guru.example/kapselmaschine-test,18,1289,1.40%,12.8
+kapselmaschine guenstig,https://kaffee-guru.example/kapselmaschine-test,7,953,0.73%,11.9
+kaffeebohnen test,https://kaffee-guru.example/kaffeebohnen-test,97,2034,4.77%,6.1
+beste kaffeebohnen,https://kaffee-guru.example/kaffeebohnen-test,176,2976,5.91%,5.8
+kaffeebohnen kaufen,https://kaffee-guru.example/kaffeebohnen-test,17,814,2.09%,10.8
+kaffeebohnen fuer vollautomaten,https://kaffee-guru.example/kaffeebohnen-test,48,1218,3.94%,7.8
+kaffeebohnen crema,https://kaffee-guru.example/kaffeebohnen-test,13,631,2.06%,9.0
+espressobohnen test,https://kaffee-guru.example/espressobohnen-test,42,2554,1.64%,7.7
+beste espressobohnen,https://kaffee-guru.example/espressobohnen-test,7,360,1.94%,12.8
+espressobohnen kaufen,https://kaffee-guru.example/espressobohnen-test,4,460,0.87%,17.3
+kaffeekapseln test,https://kaffee-guru.example/kaffeekapseln-test,5,540,0.93%,7.9
+beste kaffeekapseln,https://kaffee-guru.example/kaffeekapseln-test,60,2163,2.77%,10.7
+nachhaltige kaffeekapseln,https://kaffee-guru.example/kaffeekapseln-test,19,1258,1.51%,15.6
+kaffeekapseln kaufen,https://kaffee-guru.example/kaffeekapseln-test,24,565,4.25%,7.8
+cold brew maker,https://kaffee-guru.example/cold-brew-maker-test,111,3363,3.30%,6.5
+cold brew maker test,https://kaffee-guru.example/cold-brew-maker-test,30,2475,1.21%,11.9
+cold brew selber machen,https://kaffee-guru.example/cold-brew-maker-test,5,500,1.00%,6.2
+cold brew flasche,https://kaffee-guru.example/cold-brew-maker-test,4,946,0.42%,17.5
+handmuehle kaffee,https://kaffee-guru.example/handmuehle-test,52,2735,1.90%,5.3
+beste handmuehle,https://kaffee-guru.example/handmuehle-test,48,2615,1.84%,14.5
+handmuehle test,https://kaffee-guru.example/handmuehle-test,11,763,1.44%,8.0
+kaffee handmuehle reise,https://kaffee-guru.example/handmuehle-test,13,734,1.77%,14.7
+thermoskanne test,https://kaffee-guru.example/thermoskanne-test,17,338,5.03%,8.2
+beste thermoskanne,https://kaffee-guru.example/thermoskanne-test,5,600,0.83%,19.4
+thermoskanne kaffee,https://kaffee-guru.example/thermoskanne-test,40,834,4.80%,6.9
+thermoskanne kaufen,https://kaffee-guru.example/thermoskanne-test,12,443,2.71%,10.4
+kaffeebecher to go test,https://kaffee-guru.example/kaffeebecher-to-go-test,229,2978,7.69%,5.5
+bester coffee to go becher,https://kaffee-guru.example/kaffeebecher-to-go-test,21,3017,0.70%,13.0
+thermobecher test,https://kaffee-guru.example/kaffeebecher-to-go-test,12,339,3.54%,8.8
+entkalker test,https://kaffee-guru.example/entkalker-test,73,1162,6.28%,5.4
+bester entkalker,https://kaffee-guru.example/entkalker-test,19,1381,1.38%,14.2
+entkalker kaffeevollautomat,https://kaffee-guru.example/entkalker-test,1,224,0.45%,18.2
+entkalker fluessig,https://kaffee-guru.example/entkalker-test,3,127,2.36%,9.0
+wasserfilter test,https://kaffee-guru.example/wasserfilter-test,40,961,4.16%,8.4
+wasserfilter kaffeevollautomat,https://kaffee-guru.example/wasserfilter-test,4,339,1.18%,11.2
+bester wasserfilter,https://kaffee-guru.example/wasserfilter-test,7,425,1.65%,15.0
+kaffeevollautomat reinigen,https://kaffee-guru.example/kaffeevollautomat-reinigen,8,686,1.17%,13.6
+kaffeevollautomat entkalken,https://kaffee-guru.example/kaffeevollautomat-entkalken,5,243,2.06%,10.0
+kaffeevollautomat mit app,https://kaffee-guru.example/kaffeevollautomat-app,21,501,4.19%,8.1
+kaffeevollautomat fuer buero,https://kaffee-guru.example/kaffeevollautomat-buero,5,713,0.70%,18.4
+kaffeevollautomat mit festwasseranschluss,https://kaffee-guru.example/kaffeevollautomat-festwasser,26,805,3.23%,6.7
+espressomaschine entkalken,https://kaffee-guru.example/espressomaschine-entkalken,11,1440,0.76%,16.2
+siebtraeger reinigen,https://kaffee-guru.example/siebtraeger-reinigen,7,1096,0.64%,15.1
+milch aufschaeumen ohne aufschaeumer,https://kaffee-guru.example/milch-aufschaeumen,15,238,6.30%,5.8
+kaffeemuehle reinigen,https://kaffee-guru.example/kaffeemuehle-reinigen,18,1965,0.92%,17.5
+french press anleitung,https://kaffee-guru.example/french-press-anleitung,2,993,0.20%,18.4
+cold brew rezept,https://kaffee-guru.example/cold-brew-rezept,8,364,2.20%,9.4
+espresso tamper,https://kaffee-guru.example/espresso-tamper,30,1717,1.75%,14.6
+milchkaennchen,https://kaffee-guru.example/milchkaennchen,2,193,1.04%,9.5
+kaffeedose luftdicht,https://kaffee-guru.example/kaffeedose,19,1167,1.63%,6.9
+handfilter kaffee,https://kaffee-guru.example/handfilter,42,1364,3.08%,9.7
+kaffeeservice,https://kaffee-guru.example/kaffeeservice,26,858,3.03%,5.9
+mahlgrad einstellen,https://kaffee-guru.example/mahlgrad-einstellen,52,887,5.86%,4.0
+kaffee dosierung,https://kaffee-guru.example/kaffee-dosierung,24,1432,1.68%,15.0
+espresso einstellen,https://kaffee-guru.example/espresso-einstellen,58,1310,4.43%,6.1
+crema perfekt,https://kaffee-guru.example/crema-perfekt,29,1291,2.25%,9.4
+kaffeevollautomat kaufberatung,https://kaffee-guru.example/kaffeevollautomat-kaufberatung,30,1632,1.84%,15.0
+welcher kaffeevollautomat,https://kaffee-guru.example/welcher-kaffeevollautomat,23,1312,1.75%,14.2
+kaffeemaschine mit timer,https://kaffee-guru.example/kaffeemaschine-timer,25,940,2.66%,9.0
+padmaschine oder vollautomat,https://kaffee-guru.example/padmaschine-vs-vollautomat,33,1984,1.66%,14.8
+espressokocher induktion,https://kaffee-guru.example/espressokocher-induktion,11,775,1.42%,12.4
+aeropress test,https://kaffee-guru.example/aeropress-test,11,1452,0.76%,15.0
+kaffeefilter groesse,https://kaffee-guru.example/kaffeefilter-groesse,16,1351,1.18%,7.9
+kaffee vakuumieren,https://kaffee-guru.example/kaffee-vakuumieren,81,1082,7.49%,4.4
+wie viel koffein hat kaffee,https://kaffee-guru.example/blog/koffein-kaffee,17,1985,0.86%,16.4
+kaffee gesund,https://kaffee-guru.example/blog/kaffee-gesund,62,1692,3.66%,7.5
+kaffeesatz duengen,https://kaffee-guru.example/blog/kaffeesatz-duengen,3,142,2.11%,14.7
+espresso vs lungo,https://kaffee-guru.example/blog/espresso-lungo,7,1861,0.38%,18.2
+latte macchiato rezept,https://kaffee-guru.example/blog/latte-macchiato,9,2022,0.45%,15.3
+kaffee rezepte,https://kaffee-guru.example/blog/kaffee-rezepte,6,1989,0.30%,17.6
+cappuccino kalorien,https://kaffee-guru.example/blog/cappuccino-kalorien,44,2409,1.83%,12.7
+kaffee haltbarkeit,https://kaffee-guru.example/blog/kaffee-haltbarkeit,21,2187,0.96%,18.3
+kaffee geschichte,https://kaffee-guru.example/blog/kaffee-geschichte,20,771,2.59%,11.4
+barista kurs,https://kaffee-guru.example/blog/barista-kurs,42,1132,3.71%,8.5
+kaffeefleck entfernen,https://kaffee-guru.example/blog/kaffeefleck,16,2104,0.76%,16.6
+koffein wirkung,https://kaffee-guru.example/blog/koffein-wirkung,30,1290,2.33%,5.7
+kaffee in der schwangerschaft,https://kaffee-guru.example/blog/kaffee-schwangerschaft,1,450,0.22%,18.3
+gruener kaffee,https://kaffee-guru.example/blog/gruener-kaffee,5,996,0.50%,15.3
+kaffee abnehmen,https://kaffee-guru.example/blog/kaffee-abnehmen,13,1823,0.71%,12.9
+flat white unterschied,https://kaffee-guru.example/blog/flat-white,51,2512,2.03%,10.5
+kaffee arten,https://kaffee-guru.example/blog/kaffee-arten,16,2478,0.65%,18.2
+robusta vs arabica,https://kaffee-guru.example/blog/robusta-arabica,53,1717,3.09%,10.0
+kaffee roesten,https://kaffee-guru.example/blog/kaffee-roesten,71,2356,3.01%,11.0
+kaffee ph wert,https://kaffee-guru.example/blog/kaffee-ph-wert,15,1237,1.21%,12.1
+wie viel kaffee am tag,https://kaffee-guru.example/blog/kaffee-pro-tag,52,1776,2.93%,9.7
+kaffee ohne saeure,https://kaffee-guru.example/blog/kaffee-ohne-saeure,6,2307,0.26%,18.8
+kaffeetrinken vorteile,https://kaffee-guru.example/blog/kaffee-vorteile,1,231,0.43%,13.2
+espresso koffeingehalt,https://kaffee-guru.example/blog/espresso-koffein,2,864,0.23%,17.9
+kaffeevollautomat,https://kaffee-guru.example/kaffeevollautomat,859,3200,26.84%,1.4
+espressomaschine,https://kaffee-guru.example/espressomaschine,739,2600,28.42%,1.9
+milchaufschaeumer,https://kaffee-guru.example/milchaufschaeumer,788,2300,34.26%,1.6
+kaffeemuehle,https://kaffee-guru.example/kaffeemuehle,367,2100,17.48%,2.4
+french press,https://kaffee-guru.example/french-press,369,1800,20.50%,2.1
+kaffeebohnen kaufen,https://kaffee-guru.example/kaffeebohnen-kaufen,296,1400,21.14%,2.8
+kaffeekapseln,https://kaffee-guru.example/kaffeekapseln,521,1900,27.42%,1.8
+kaffee test,https://kaffee-guru.example/kaffee-test,241,1600,15.06%,2.2
+kaffeepadmaschine,https://kaffee-guru.example/kaffeepadmaschine,116,1200,9.67%,3.0
+cold brew,https://kaffee-guru.example/cold-brew,244,1300,18.77%,2.6
+kaffee-guru erfahrungen,https://kaffee-guru.example/marke/erfahrungen,37,420,8.81%,4.5
+kaffee-guru test,https://kaffee-guru.example/marke/test,11,300,3.67%,6.1
+kaffee-guru gutschein,https://kaffee-guru.example/marke/gutschein,10,240,4.17%,8.3
+kaffee-guru shop,https://kaffee-guru.example/marke/shop,29,360,8.06%,5.4
+kaffee-guru bewertung,https://kaffee-guru.example/marke/bewertung,8,190,4.21%,7.2
+kaffeevollautomat zweikreiser handhebel,https://kaffee-guru.example/nische-1,0,14,0.00%,17.5
+espressomaschine dualboiler pid steuerung,https://kaffee-guru.example/nische-2,0,9,0.00%,19.1
+kaffeemuehle handbetrieb titan kegelmahlwerk,https://kaffee-guru.example/nische-3,0,22,0.00%,16.4
+milchaufschaeumer induktion doppelwand test,https://kaffee-guru.example/nische-4,0,7,0.00%,18.8
+kaffeebohnen entkoffeiniert bio fair gehandelt,https://kaffee-guru.example/nische-5,0,11,0.00%,15.9
+french press edelstahl doppelwandig 1 liter,https://kaffee-guru.example/nische-6,0,6,0.00%,20.0
+cold brew flasche glas mit sieb,https://kaffee-guru.example/nische-7,0,19,0.00%,17.2
+kaffeepad nachhaltig kompostierbar bio,https://kaffee-guru.example/nische-8,0,8,0.00%,18.3
+kaffeevollautomat ratgeber,https://kaffee-guru.example/kaffeevollautomat-ratgeber,20,584,3.42%,7.9
+espressomaschine ratgeber,https://kaffee-guru.example/espressomaschine-ratgeber,4,294,1.36%,13.9
+kaffeemuehle ratgeber,https://kaffee-guru.example/kaffeemuehle-ratgeber,3,112,2.68%,9.3
+milchaufschaeumer ratgeber,https://kaffee-guru.example/milchaufschaeumer-ratgeber,7,828,0.85%,18.6
+kaffeebohnen ratgeber,https://kaffee-guru.example/kaffeebohnen-ratgeber,17,557,3.05%,5.7
+french press ratgeber,https://kaffee-guru.example/french-press-ratgeber,3,307,0.98%,17.7
+kapselmaschine ratgeber,https://kaffee-guru.example/kapselmaschine-ratgeber,78,1151,6.78%,5.1
+filterkaffeemaschine ratgeber,https://kaffee-guru.example/filterkaffeemaschine-ratgeber,4,758,0.53%,12.3
+kaffeevollautomat angebot,https://kaffee-guru.example/kaffeevollautomat-angebot,15,947,1.58%,12.1
+espressomaschine angebot,https://kaffee-guru.example/espressomaschine-angebot,3,373,0.80%,17.3
+kaffeemuehle angebot,https://kaffee-guru.example/kaffeemuehle-angebot,6,613,0.98%,19.5
+milchaufschaeumer angebot,https://kaffee-guru.example/milchaufschaeumer-angebot,9,1012,0.89%,16.5
+kaffeebohnen angebot,https://kaffee-guru.example/kaffeebohnen-angebot,19,562,3.38%,8.7
+french press angebot,https://kaffee-guru.example/french-press-angebot,5,559,0.89%,18.2
+kapselmaschine angebot,https://kaffee-guru.example/kapselmaschine-angebot,5,748,0.67%,14.9
+filterkaffeemaschine angebot,https://kaffee-guru.example/filterkaffeemaschine-angebot,18,494,3.64%,7.3
+kaffeevollautomat 2026,https://kaffee-guru.example/kaffeevollautomat-2026,26,625,4.16%,8.8
+espressomaschine 2026,https://kaffee-guru.example/espressomaschine-2026,23,554,4.15%,7.5
+kaffeemuehle 2026,https://kaffee-guru.example/kaffeemuehle-2026,8,1035,0.77%,16.3
+milchaufschaeumer 2026,https://kaffee-guru.example/milchaufschaeumer-2026,1,250,0.40%,16.8
+kaffeebohnen 2026,https://kaffee-guru.example/kaffeebohnen-2026,34,815,4.17%,8.3
+french press 2026,https://kaffee-guru.example/french-press-2026,33,1187,2.78%,11.1
+kapselmaschine 2026,https://kaffee-guru.example/kapselmaschine-2026,10,574,1.74%,8.7
+filterkaffeemaschine 2026,https://kaffee-guru.example/filterkaffeemaschine-2026,32,1157,2.77%,9.4
+kaffeevollautomat im test,https://kaffee-guru.example/kaffeevollautomat-im-test,17,1051,1.62%,7.5
+espressomaschine im test,https://kaffee-guru.example/espressomaschine-im-test,6,639,0.94%,16.3
+kaffeemuehle im test,https://kaffee-guru.example/kaffeemuehle-im-test,5,799,0.63%,9.1
+milchaufschaeumer im test,https://kaffee-guru.example/milchaufschaeumer-im-test,2,621,0.32%,12.8
+kaffeebohnen im test,https://kaffee-guru.example/kaffeebohnen-im-test,9,318,2.83%,9.0
+french press im test,https://kaffee-guru.example/french-press-im-test,3,85,3.53%,6.1
+kapselmaschine im test,https://kaffee-guru.example/kapselmaschine-im-test,10,437,2.29%,11.3
+filterkaffeemaschine im test,https://kaffee-guru.example/filterkaffeemaschine-im-test,2,293,0.68%,17.9
+kaffeevollautomat erfahrungen,https://kaffee-guru.example/kaffeevollautomat-erfahrungen,5,169,2.96%,5.6
+espressomaschine erfahrungen,https://kaffee-guru.example/espressomaschine-erfahrungen,2,234,0.85%,19.2
+kaffeemuehle erfahrungen,https://kaffee-guru.example/kaffeemuehle-erfahrungen,4,522,0.77%,16.3
+milchaufschaeumer erfahrungen,https://kaffee-guru.example/milchaufschaeumer-erfahrungen,7,668,1.05%,18.6
+kaffeebohnen erfahrungen,https://kaffee-guru.example/kaffeebohnen-erfahrungen,5,183,2.73%,9.2
+french press erfahrungen,https://kaffee-guru.example/french-press-erfahrungen,4,485,0.82%,19.2
+kapselmaschine erfahrungen,https://kaffee-guru.example/kapselmaschine-erfahrungen,10,551,1.81%,5.8
+filterkaffeemaschine erfahrungen,https://kaffee-guru.example/filterkaffeemaschine-erfahrungen,70,982,7.13%,4.5
+kaffeevollautomat stiftung warentest,https://kaffee-guru.example/kaffeevollautomat-stiftung-warentest,51,650,7.85%,5.0
+espressomaschine stiftung warentest,https://kaffee-guru.example/espressomaschine-stiftung-warentest,16,538,2.97%,11.5
+kaffeemuehle stiftung warentest,https://kaffee-guru.example/kaffeemuehle-stiftung-warentest,7,465,1.51%,14.2
+milchaufschaeumer stiftung warentest,https://kaffee-guru.example/milchaufschaeumer-stiftung-warentest,8,604,1.32%,14.5
