@@ -50,6 +50,9 @@ st.markdown(
     [data-testid="stDownloadButton"] button * { color: #ffffff !important; }
     /* Datenquelle-Auswahl prominenter */
     [data-testid="stSidebar"] div[role="radiogroup"] label p { font-size: 1.05rem; font-weight: 600; }
+    /* START-Button groß & auffällig */
+    [data-testid="stSidebar"] .stButton button {
+        padding: 0.7rem 1rem; font-size: 1.25rem; font-weight: 800; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -319,12 +322,20 @@ st.sidebar.markdown("### 📁 Datenquelle")
 source = st.sidebar.radio("Datenquelle", [OPT_DEMO, OPT_UPLOAD],
                           label_visibility="collapsed")
 
+# Beim Wechsel der Datenquelle wieder auf den leeren Startzustand zurück.
+if st.session_state.get("_last_source") != source:
+    st.session_state["_last_source"] = source
+    st.session_state["started"] = False
+
 uploaded = None
 if source == OPT_UPLOAD:
     uploaded = st.sidebar.file_uploader(
         "GSC-Export (CSV)", type=["csv", "tsv", "txt"],
         help="Search Console → Leistung → Suchergebnisse → Dimensionen "
              "»Suchanfragen« und »Seiten« → Exportieren → CSV.")
+
+if st.sidebar.button("🚀 START", type="primary", width="stretch"):
+    st.session_state["started"] = True
 
 st.sidebar.subheader("Filter")
 pos_min, pos_max = st.sidebar.slider("Positions-Bereich", 1.0, 50.0, (4.0, 20.0),
@@ -459,9 +470,15 @@ st.info(
     "(darauf sind die Filter abgestimmt)."
 )
 
+if not st.session_state.get("started"):
+    st.info("👈 Wähle links deine **Datenquelle** (Demo-Daten oder eigener "
+            "GSC-Export) und klick dann auf **🚀 START**.")
+    st.stop()
+
 if source == OPT_UPLOAD and uploaded is None:
-    st.info("Lade links deinen GSC-CSV-Export hoch — oder wähle **Demo-Daten**, "
-            "um das Tool sofort ohne eigene Datei auszuprobieren.")
+    st.info("Lade links deinen GSC-CSV-Export hoch und klick anschließend erneut "
+            "auf **🚀 START** — oder wähle **Demo-Daten**, um es ohne eigene Datei "
+            "auszuprobieren.")
     st.stop()
 
 try:
