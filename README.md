@@ -21,10 +21,21 @@ GSC-Export → CTR-Baseline aus deinen eigenen Daten → Striking-Distance-Filte
 - **Begründung ist kostenlos und ohne API-Key.** Jede Zeile bekommt eine
   klare, aus den Zahlen abgeleitete Begründung (Position, Impressionen, CTR vs.
   deine Baseline, geschätztes Klick-Potenzial). Keine Halluzination, sofort da.
-- **Optionaler KI-Deep-Dive.** Wer will, hinterlegt einen kostenlosen
-  Gemini-Key und lässt für die Top-Keywords eine tiefere Diagnose + konkreten
-  nächsten Schritt ergänzen (am besten mit eingefügtem Title/Meta). Das Tool
-  funktioniert vollständig auch ohne Key.
+- **Meta-Title-Check (kostenlos).** Der aktuelle `<title>` jeder Seite wird
+  abgerufen und geprüft, ob das Keyword enthalten ist — fuzzy, also tolerant
+  gegenüber Singular/Plural, Satzzeichen, Füllwörtern und anderer Reihenfolge
+  (`iphone test` ↔ „iPhone im Test"; `kaffeemaschine vergleich` ↔ „Vergleich:
+  die besten Kaffeemaschinen"). Ergibt die Spalten **Keyword enthalten** und
+  **Meta Title aktuell**. Kein API-Key nötig.
+- **Optionaler Title-Vorschlag (Gemini).** Mit einem kostenlosen Gemini-Key
+  wird pro Keyword ein neuer Meta-Title mit **52–59 Zeichen** vorgeschlagen; die
+  Länge wird per Code hart nachgeprüft (Double-Check). In der »Nach Seite
+  gruppiert«-Ansicht versucht der Vorschlag, mehrere Striking-Distance-Keywords
+  einer URL in einem Title abzudecken. Das Tool funktioniert vollständig auch
+  ohne Key.
+- **Automatische Marken-Erkennung.** Die Marke wird aus der Domain deiner Seiten
+  erkannt; markenhaltige Keywords werden aus der CTR-Baseline herausgerechnet und
+  lassen sich per Klick aus der Liste ausschließen (einzelne wieder aufnehmbar).
 - **Optionaler Umsatz-Hebel.** Ein Wert pro Klick verwandelt das
   Klick-Potenzial in geschätztes Umsatz-Potenzial pro Monat.
 
@@ -66,15 +77,25 @@ python striking_distance_finder.py sample_gsc.csv \
     --brand-terms cremola --value-per-click 2.50 --out opportunities.csv
 ```
 
-## Optionaler KI-Deep-Dive (kostenlos)
+## Meta-Titles & optionaler Title-Vorschlag
+
+Im Bereich **»Meta-Titles prüfen & optimieren«** (unter den Kennzahlen) auf
+**»Meta-Titles abrufen & prüfen«** klicken. Das Tool ruft die `<title>` der
+Seiten ab und füllt die Spalten **Keyword enthalten** und **Meta Title aktuell**
+— komplett kostenlos und ohne Key. Seiten, die den Abruf blockieren, lassen sich
+über das Textfeld manuell ergänzen (`URL-Fragment | Meta Title`).
+
+Für die Spalte **Meta Title neu (Vorschlag)** (52–59 Zeichen) einen kostenlosen
+Gemini-Key hinterlegen:
 
 1. Auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey) mit einem
    Google-Konto anmelden → **Create API key** (keine Kreditkarte für den Free Tier).
 2. In Streamlit Cloud: App → **Settings → Secrets** → Zeile einfügen:
    `GEMINI_API_KEY = "dein-key"`. Lokal: Umgebungsvariable `GEMINI_API_KEY` setzen.
-3. Der Tab **»KI-Deep-Dive«** analysiert dann die Top-Keywords. Standardmodell
-   `gemini-3.5-flash` mit automatischer Fallback-Kette (`gemini-2.5-flash` /
-   `gemini-2.5-flash-lite`). Der Key geht nur in den Request-Header, nie in eine URL.
+3. Standardmodell `gemini-3.5-flash` mit automatischer Fallback-Kette
+   (`gemini-2.5-flash` / `gemini-2.5-flash-lite`). Der Key geht nur in den
+   Request-Header, nie in eine URL. Die 52–59-Zeichen-Grenze wird nach der
+   Generierung per Code garantiert.
 
 ## Tests
 

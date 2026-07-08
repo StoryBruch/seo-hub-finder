@@ -6,8 +6,9 @@ ranked list of striking-distance keywords: queries already ranking just below
 the top, with real impression volume and the biggest estimated click upside.
 Every row comes with a plain-language, data-grounded reason — no API key needed.
 
-An optional AI deep-dive (free Gemini tier) can enrich the top rows when a
-GEMINI_API_KEY is configured; the tool works fully without it.
+Optionally the current meta title of each page is scraped and checked against
+its keyword (fuzzy), and — with a free Gemini key — an improved 52–59 character
+title is proposed. The tool works fully without any key.
 """
 import io
 import os
@@ -42,33 +43,122 @@ def get_api_key() -> str:
 @st.cache_data(show_spinner=False)
 def analyze(file_bytes: bytes, pos_min: float, pos_max: float,
             min_impressions: float, underperformance: float,
-            brand_terms: tuple, exclude_brand: bool,
-            value_per_click):
-    """Parse + analyze. Cached so slider changes don't re-read the file."""
+            manual_brand_terms: tuple, value_per_click):
+    """Parse + analyze. Cached so slider changes don't re-read the file.
+
+    Brand terms are the manually entered ones *plus* the ones auto-detected from
+    the page domains. `is_brand` is always computed; the actual list exclusion /
+    re-inclusion happens in the UI layer so it stays interactive.
+    """
     df = sdf.clean_gsc(sdf.read_gsc_csv(io.BytesIO(file_bytes)))
+    detected = sdf.detect_brand_terms(df["page"])
+    brand_terms = list(dict.fromkeys([*manual_brand_terms, *detected]))
     candidates, baseline, fallback_used = sdf.find_striking_distance(
         df, pos_min=pos_min, pos_max=pos_max, min_impressions=min_impressions,
         underperformance_threshold=underperformance,
-        brand_terms=list(brand_terms), exclude_brand=exclude_brand,
+        brand_terms=brand_terms, exclude_brand=False,
         value_per_click=value_per_click)
-    by_page = sdf.group_by_page(candidates)
-    return df, candidates, by_page, baseline, fallback_used
+    return df, candidates, baseline, fallback_used, detected, brand_terms
 
 
-def display_frame(candidates: pd.DataFrame, value_per_click) -> pd.DataFrame:
+def _contained_label(title, query) -> str:
+    if title is None:
+        return "?"        # page not (yet) scraped or not reachable
+    if not title:
+        return "?"
+    return "Ja" if sdf.keyword_in_title(query, title) else "Nein"
+
+
+def display_frame(candidates: pd.DataFrame, value_per_click, meta=None) -> pd.DataFrame:
     disp = pd.DataFrame()
-    disp["Keyword"] = candidates["query"]
-    disp["Seite"] = candidates["page"]
-    disp["Position"] = candidates["position"].round(1)
-    disp["Impressionen"] = candidates["impressions"].astype(int)
-    disp["Klicks"] = candidates["clicks"].astype(int)
-    disp["CTR %"] = (candidates["ctr"] * 100).round(2)
-    disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2)
-    disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int)
+    disp["Keyword"] = candidates["query"].values
+    disp["Seite"] = candidates["page"].values
+    disp["Position"] = candidates["position"].round(1).values
+    disp["Impressionen"] = candidates["impressions"].astype(int).values
+    disp["Klicks"] = candidates["clicks"].astype(int).values
+    disp["CTR %"] = (candidates["ctr"] * 100).round(2).values
+    disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2).values
+    disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int).values
     if value_per_click and "est_revenue_upside" in candidates:
-        disp["Umsatz-Potenzial €"] = candidates["est_revenue_upside"].round(2)
-    disp["Begründung"] = candidates["reasoning"]
+        disp["Umsatz-Potenzial €"] = candidates["est_revenue_upside"].round(2).values
+    disp["Begründung"] = candidates["reasoning"].values
+
+    if meta and meta.get("titles") is not None:
+        titles = meta["titles"]
+        kw_sug = meta.get("kw_suggestions", {})
+        current, contained, new = [], [], []
+        for page, query in zip(candidates["page"], candidates["query"]):
+            title = titles.get(page)
+            current.append(title if title else ("(nicht abrufbar)"
+                                                if page in titles else ""))
+            contained.append(_contained_label(title, query))
+            sug = kw_sug.get((page, query))
+            new.append(sug[0] if sug else "")
+        disp["Keyword enthalten"] = contained
+        disp["Meta Title aktuell"] = current
+        disp["Meta Title neu (Vorschlag)"] = new
     return disp
+
+
+def parse_fallback_titles(raw: str, pages) -> dict:
+    """`URL-Fragment | Meta Title` lines -> {page: title} for matching pages."""
+    out = {}
+    for line in (raw or "").splitlines():
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) >= 2 and parts[0]:
+            frag, text = parts[0], " | ".join(parts[1:]).strip()
+            if not text:
+                continue
+            for page in pages:
+                if frag in str(page):
+                    out[page] = text
+    return out
+
+
+def run_meta_analysis(visible: pd.DataFrame, top_n: int, fallback_raw: str,
+                      api_key: str, brand: str):
+    """Scrape titles, check keyword containment, and (with a key) suggest titles.
+
+    Results land in st.session_state["meta"] and drive the new table columns.
+    """
+    pages = [p for p in visible["page"].unique().tolist()
+             if p and p != "(keine URL)"]
+    with st.spinner(f"Rufe Meta-Titles von {len(pages)} Seiten ab …"):
+        titles = sdf.fetch_meta_titles(pages)
+    titles.update(parse_fallback_titles(fallback_raw, pages))
+
+    kw_suggestions, page_suggestions = {}, {}
+    if api_key:
+        top_rows = visible.head(int(top_n))
+        total = max(1, len(top_rows))
+        prog = st.progress(0.0, text="Erzeuge Titel-Vorschläge …")
+        for i, (page, query) in enumerate(
+                zip(top_rows["page"], top_rows["query"]), 1):
+            current = titles.get(page) or ""
+            title, status = sdf.gemini_meta_title(query, current, api_key, brand=brand)
+            kw_suggestions[(page, query)] = (title, status)
+            prog.progress(i / total, text=f"Titel-Vorschläge … ({i}/{total})")
+        prog.empty()
+
+        # Per-page suggestion that tries to cover several keywords of one URL.
+        top_pages = (visible.groupby("page")["opportunity_score"].sum()
+                     .sort_values(ascending=False).head(int(top_n)).index.tolist())
+        with st.spinner("Erzeuge seitenweise Multi-Keyword-Titel …"):
+            for page in top_pages:
+                if page == "(keine URL)":
+                    continue
+                rows = visible[visible["page"] == page].sort_values(
+                    "opportunity_score", ascending=False)
+                kws = rows["query"].tolist()[:4]
+                current = titles.get(page) or ""
+                title, status = sdf.gemini_meta_title(kws, current, api_key, brand=brand)
+                covered = sum(1 for k in kws if sdf.keyword_in_title(k, title))
+                page_suggestions[page] = {"title": title, "covered": covered,
+                                          "n": len(kws), "status": status}
+
+    st.session_state["meta"] = {"titles": titles, "kw_suggestions": kw_suggestions,
+                                "page_suggestions": page_suggestions,
+                                "had_key": bool(api_key)}
 
 
 # --------------------------------------------------------------------------- #
@@ -100,7 +190,8 @@ underperformance = st.sidebar.slider(
 brand_input = st.sidebar.text_input(
     "Marken-Begriffe (kommagetrennt)",
     help="Werden aus der CTR-Baseline herausgerechnet — Brand-CTR verzerrt sonst "
-         "die Erwartungswerte.")
+         "die Erwartungswerte. Die Marke aus deiner Domain wird automatisch "
+         "erkannt und ergänzt.")
 exclude_brand = st.sidebar.checkbox("Marken-Keywords auch aus der Liste ausschließen")
 use_revenue = st.sidebar.checkbox("Umsatz-Hebel berechnen")
 value_per_click = None
@@ -108,7 +199,7 @@ if use_revenue:
     value_per_click = st.sidebar.number_input("Wert pro Klick (€)", 0.0, 1000.0,
                                               2.50, step=0.50)
 
-brand_terms = tuple(sdf.parse_brand_terms(brand_input))
+manual_brand_terms = tuple(sdf.parse_brand_terms(brand_input))
 
 
 # --------------------------------------------------------------------------- #
@@ -133,9 +224,9 @@ except OSError as exc:
     st.stop()
 
 try:
-    df, candidates, by_page, baseline, fallback_used = analyze(
+    df, candidates, baseline, fallback_used, detected, brand_terms = analyze(
         file_bytes, pos_min, pos_max, min_impressions, underperformance,
-        brand_terms, exclude_brand, value_per_click)
+        manual_brand_terms, value_per_click)
 except sdf.GscFormatError as exc:
     st.error(str(exc))
     st.stop()
@@ -144,14 +235,48 @@ except Exception as exc:  # keep the demo from ever showing a raw traceback
              f"gültiger GSC-Export ist.\n\nDetails: {exc}")
     st.stop()
 
-# Summary metrics
-total_upside = int(candidates["opportunity_score"].sum()) if not candidates.empty else 0
+if candidates.empty:
+    st.warning("Keine Keywords im Striking-Distance-Bereich gefunden. Versuch einen "
+               "größeren Positions-Bereich oder eine niedrigere Impressions-Schwelle.")
+    st.stop()
+
+# --- Brand review: auto-detected brand keywords, exclusion + re-inclusion ----
+brand_queries = sorted(candidates.loc[candidates["is_brand"], "query"].unique().tolist())
+reinclude = []
+if brand_terms and brand_queries:
+    detected_str = ", ".join(detected) if detected else "—"
+    st.caption(f"🏷️ **{len(brand_queries)} Marken-Keyword(s)** automatisch erkannt "
+               f"(Marke aus Domain: {detected_str}). "
+               + ("Sie werden aus der Liste ausgeschlossen — unten kannst du einzelne "
+                  "wieder aufnehmen." if exclude_brand else
+                  "Aktiviere links »Marken-Keywords auch aus der Liste ausschließen«, "
+                  "um sie auszublenden."))
+    if exclude_brand:
+        reinclude = st.multiselect(
+            "Fälschlich als Marke erkannt? Diese Keywords wieder aufnehmen:",
+            options=brand_queries, default=[],
+            help="Standardmäßig gelten alle erkannten Marken-Keywords als Marke. "
+                 "Hier ausgewählte Keywords bleiben in der Liste.")
+
+if exclude_brand and brand_terms:
+    drop_mask = candidates["is_brand"] & ~candidates["query"].isin(reinclude)
+    visible = candidates[~drop_mask].reset_index(drop=True)
+else:
+    visible = candidates
+
+if visible.empty:
+    st.warning("Alle gefundenen Keywords wurden als Marken-Keywords ausgeschlossen. "
+               "Nimm oben einzelne wieder auf oder deaktiviere den Marken-Ausschluss.")
+    st.stop()
+
+# --- Summary metrics ---------------------------------------------------------
+total_upside = int(visible["opportunity_score"].sum())
 col1, col2, col3 = st.columns(3)
 col1.metric("Zeilen im Export", f"{len(df):,}".replace(",", "."))
-col2.metric("Striking-Distance-Keywords", f"{len(candidates):,}".replace(",", "."))
-if use_revenue and value_per_click and not candidates.empty:
+col2.metric("Striking-Distance-Keywords", f"{len(visible):,}".replace(",", "."))
+if use_revenue and value_per_click and "est_revenue_upside" in visible:
     col3.metric("Umsatz-Potenzial/Monat",
-                f"{candidates['est_revenue_upside'].sum():,.0f} €".replace(",", "."))
+                f"{visible['est_revenue_upside'].sum():,.0f} €".replace(",", "."))
 else:
     col3.metric("Klick-Potenzial/Monat", f"{total_upside:,}".replace(",", "."))
 
@@ -161,24 +286,49 @@ if fallback_buckets:
                + ", ".join(fallback_buckets)
                + " — dort wird ein Richtwert statt deiner eigenen CTR verwendet.")
 
-if candidates.empty:
-    st.warning("Keine Keywords im Striking-Distance-Bereich gefunden. Versuch einen "
-               "größeren Positions-Bereich oder eine niedrigere Impressions-Schwelle.")
-    st.stop()
+# --- Meta-title panel (scrape + keyword check + optional AI suggestions) ------
+brand_primary = detected[0] if detected else ""
+api_key = get_api_key()
+with st.expander("✍️ Meta-Titles prüfen & optimieren", expanded=False):
+    st.caption("Ruft den aktuellen `<title>` jeder Seite ab (kostenlos, kein Key), "
+               "prüft ob das Keyword enthalten ist (auch bei Singular/Plural, "
+               "Füllwörtern oder anderer Reihenfolge) und schlägt — mit Gemini-Key "
+               f"— einen neuen Title mit {sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen vor.")
+    top_n = st.number_input("Für wie viele Top-Keywords/Seiten Titel-Vorschläge?",
+                            1, 50, 10)
+    fallback_raw = st.text_area(
+        "Optional: Titles manuell einfügen (für Seiten, die den Abruf blockieren). "
+        "Eine Zeile pro Seite: `URL-Fragment | Meta Title`", height=90,
+        placeholder="/kaffeevollautomat-test | Kaffeevollautomat Test 2026: die 7 besten Modelle")
+    if not api_key:
+        st.info("Kein Gemini-Key hinterlegt: **Abruf + Keyword-Check funktionieren "
+                "trotzdem.** Für Titel-Vorschläge einen kostenlosen Key auf "
+                "[aistudio.google.com/apikey](https://aistudio.google.com/apikey) "
+                "erstellen und als `GEMINI_API_KEY` (Umgebungsvariable) bzw. "
+                "Streamlit-Secret hinterlegen.")
+    if st.button("🔎 Meta-Titles abrufen & prüfen"):
+        run_meta_analysis(visible, int(top_n), fallback_raw, api_key, brand_primary)
 
-tab_list, tab_pages, tab_ai = st.tabs(
-    ["📋 Keyword-Liste", "🗂️ Nach Seite gruppiert", "🤖 KI-Deep-Dive (optional)"])
+meta = st.session_state.get("meta")
+if meta and not meta.get("had_key"):
+    st.caption("Titel-Vorschläge sind leer, weil kein Gemini-Key hinterlegt ist — "
+               "Keyword-Check und aktueller Title sind trotzdem gefüllt.")
+
+# --- Tabs --------------------------------------------------------------------
+tab_list, tab_pages = st.tabs(["📋 Keyword-Liste", "🗂️ Nach Seite gruppiert"])
 
 with tab_list:
-    disp = display_frame(candidates, value_per_click)
-    st.dataframe(
-        disp, width="stretch", hide_index=True,
-        column_config={
-            "CTR %": st.column_config.NumberColumn(format="%.2f %%"),
-            "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
-            "Seite": st.column_config.TextColumn(width="medium"),
-            "Begründung": st.column_config.TextColumn(width="large"),
-        })
+    disp = display_frame(visible, value_per_click, meta=meta)
+    column_config = {
+        "CTR %": st.column_config.NumberColumn(format="%.2f %%"),
+        "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
+        "Seite": st.column_config.TextColumn(width="medium"),
+        "Begründung": st.column_config.TextColumn(width="large"),
+    }
+    if "Meta Title neu (Vorschlag)" in disp.columns:
+        column_config["Meta Title aktuell"] = st.column_config.TextColumn(width="large")
+        column_config["Meta Title neu (Vorschlag)"] = st.column_config.TextColumn(width="large")
+    st.dataframe(disp, width="stretch", hide_index=True, column_config=column_config)
     st.download_button(
         "⬇️ Liste als CSV herunterladen",
         disp.to_csv(index=False).encode("utf-8-sig"),
@@ -186,74 +336,22 @@ with tab_list:
 
 with tab_pages:
     st.caption("Mehrere Chancen auf derselben URL — diese Seiten zuerst überarbeiten "
-               "hebt gleich mehrere Keywords.")
+               "hebt gleich mehrere Keywords. Der Titel-Vorschlag versucht, mehrere "
+               "Striking-Distance-Keywords einer Seite abzudecken.")
+    by_page = sdf.group_by_page(visible)
     show = by_page.rename(columns={
         "page": "Seite", "n_keywords": "Keywords",
         "total_upside": "Klick-Potenzial/Monat", "avg_position": "Ø-Position",
         "top_keywords": "Top-Keywords"})
-    st.dataframe(show, width="stretch", hide_index=True,
-                 column_config={"Top-Keywords": st.column_config.TextColumn(width="large")})
-
-with tab_ai:
-    api_key = get_api_key()
-    st.caption("Die Begründung in der Liste ist bereits vollständig und "
-               "kostenlos. Der KI-Deep-Dive ergänzt für die Top-Keywords eine "
-               "tiefere Diagnose + konkreten nächsten Schritt.")
-    if not api_key:
-        st.info(
-            "**Kein API-Key hinterlegt — der Deep-Dive ist optional.**\n\n"
-            "So aktivierst du ihn kostenlos:\n"
-            "1. Auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey) "
-            "mit einem Google-Konto anmelden → **Create API key** (keine Kreditkarte).\n"
-            "2. In Streamlit Cloud: App → **Settings → Secrets** → Zeile einfügen: "
-            "`GEMINI_API_KEY = \"dein-key\"`\n"
-            "3. Lokal: Umgebungsvariable `GEMINI_API_KEY` setzen.")
-    else:
-        top_n = st.number_input("Wie viele Top-Keywords analysieren?", 1, 25, 10)
-        context_raw = st.text_area(
-            "Optional: Title & Meta der Seiten einfügen — dann liefert die KI "
-            "konkrete Title-Rewrites statt Hypothesen. Eine Zeile pro Seite: "
-            "`URL-Fragment | Titel | Meta-Description`", height=100,
-            placeholder="/kaffeevollautomat-test | Kaffeevollautomat Test 2026 | "
-                        "Die 7 besten Modelle im Vergleich …")
-
-        if st.button("🤖 Ausgewählte Keywords mit KI analysieren"):
-            top_rows = candidates.head(int(top_n)).reset_index(drop=True)
-            page_context = {}
-            for line in context_raw.splitlines():
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) >= 2 and parts[0]:
-                    frag, text = parts[0], " | ".join(parts[1:])
-                    for page in top_rows["page"]:
-                        if frag in str(page):
-                            page_context[page] = text
-            rows = top_rows.to_dict("records")
-            with st.spinner("KI analysiert die Top-Keywords …"):
-                results, status = sdf.gemini_deep_dive(rows, api_key,
-                                                       page_context=page_context)
-            st.session_state["deep_dive"] = {"results": results, "status": status,
-                                             "rows": rows}
-
-        state = st.session_state.get("deep_dive")
-        if state:
-            status = state["status"]
-            if status == "ok":
-                for i, r in enumerate(state["rows"]):
-                    res = state["results"].get(i)
-                    with st.expander(f"{r['query']}  ·  Platz {float(r['position']):.1f}  "
-                                     f"·  +{int(r['click_upside'])} Klicks"):
-                        if res:
-                            st.markdown(f"**Diagnose:** {res['diagnosis']}")
-                            st.markdown(f"**Nächster Schritt:** {res['action']}")
-                        else:
-                            st.markdown(str(r.get("reasoning", "")))
-            elif status == "http_auth":
-                st.error("Der API-Key wurde abgelehnt (401/403). Bitte in den "
-                         "Secrets prüfen.")
-            else:
-                st.warning("Die KI-Analyse ist gerade nicht verfügbar "
-                           f"(Status: {status}). Die deterministische Begründung "
-                           "in der Liste bleibt davon unberührt.")
+    page_cfg = {"Top-Keywords": st.column_config.TextColumn(width="large")}
+    if meta and meta.get("page_suggestions"):
+        ps = meta["page_suggestions"]
+        show["Title-Vorschlag (mehrere KW)"] = by_page["page"].map(
+            lambda p: ps.get(p, {}).get("title", ""))
+        show["Abgedeckte KW"] = by_page["page"].map(
+            lambda p: f"{ps[p]['covered']}/{ps[p]['n']}" if p in ps else "")
+        page_cfg["Title-Vorschlag (mehrere KW)"] = st.column_config.TextColumn(width="large")
+    st.dataframe(show, width="stretch", hide_index=True, column_config=page_cfg)
 
 st.divider()
 st.caption("Striking Distance Finder · GSC-basiert · CTR-Baseline aus deinen "

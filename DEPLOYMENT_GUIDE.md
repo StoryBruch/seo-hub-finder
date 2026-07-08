@@ -20,7 +20,7 @@ streamlit run app_streamlit.py
 4. **Deploy**. Nach jedem Push zieht Streamlit die neue Version automatisch.
 5. Den App-Link teilen.
 
-## Optional: KI-Deep-Dive aktivieren
+## Optional: Meta-Title-Vorschläge aktivieren
 
 App → **Settings → Secrets** → Zeile einfügen:
 
@@ -29,7 +29,8 @@ GEMINI_API_KEY = "dein-key"
 ```
 
 Key kostenlos auf [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-Ohne Key funktioniert alles außer dem optionalen KI-Tab.
+Ohne Key funktioniert alles außer der Spalte **Meta Title neu (Vorschlag)** —
+das Abrufen der aktuellen Titles und der Keyword-Check laufen auch ohne Key.
 
 ## Braucht der Empfänger Claude Code?
 

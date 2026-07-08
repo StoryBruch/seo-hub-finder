@@ -265,32 +265,135 @@ class GeminiClientTests(unittest.TestCase):
         self.assertNotIn("secret-key", captured["url"])
 
 
-class DeepDiveTests(unittest.TestCase):
-    def _rows(self):
-        return [{"query": "kw", "page": "/p", "position": 7.0, "ctr": 0.01,
-                 "expected_ctr": 0.03, "impressions": 1000, "clicks": 10,
-                 "click_upside": 90}]
+class DetectBrandTermsTests(unittest.TestCase):
+    def test_extracts_brand_label_from_domain(self):
+        pages = ["https://www.cloudwards.net/best-vpn/",
+                 "http://cloudwards.net/reviews", "https://www.cloudwards.net/x"]
+        self.assertEqual(sdf.detect_brand_terms(pages), ["cloudwards"])
 
+    def test_multi_part_tld(self):
+        self.assertEqual(sdf.detect_brand_terms(["https://www.example.co.uk/a"]),
+                         ["example"])
+
+    def test_ignores_rows_without_url(self):
+        self.assertEqual(sdf.detect_brand_terms(["(keine URL)", "", None]), [])
+
+    def test_orders_by_frequency(self):
+        pages = ["https://alpha.com/a", "https://beta.com/b", "https://beta.com/c"]
+        self.assertEqual(sdf.detect_brand_terms(pages)[0], "beta")
+
+
+class KeywordInTitleTests(unittest.TestCase):
+    def test_filler_word_between(self):
+        self.assertTrue(sdf.keyword_in_title("iphone test", "iPhone im Test"))
+
+    def test_plural_and_reordered(self):
+        self.assertTrue(sdf.keyword_in_title(
+            "kaffeemaschine vergleich",
+            "Vergleich: die besten Kaffeemaschinen gegenübergestellt"))
+
+    def test_punctuation_and_case(self):
+        self.assertTrue(sdf.keyword_in_title("vpn test 2026", "VPN-Test 2026 | Chip"))
+
+    def test_missing_word_is_false(self):
+        self.assertFalse(sdf.keyword_in_title("iphone test", "Samsung Galaxy Ratgeber"))
+
+    def test_empty_title_is_false(self):
+        self.assertFalse(sdf.keyword_in_title("iphone", ""))
+        self.assertFalse(sdf.keyword_in_title("iphone", None))
+
+    def test_umlaut_folding(self):
+        self.assertTrue(sdf.keyword_in_title("bücher kaufen", "Guenstig Buecher kaufen"))
+
+
+class EnforceTitleLengthTests(unittest.TestCase):
+    def test_short_is_padded_into_window(self):
+        title, ok = sdf.enforce_title_length("iPhone Test")
+        self.assertTrue(ok)
+        self.assertTrue(sdf.TITLE_MIN <= len(title) <= sdf.TITLE_MAX, len(title))
+
+    def test_long_is_trimmed_into_window(self):
+        long = ("Der ultimative riesige und sehr ausführliche Testbericht über "
+                "die allerbesten Kaffeevollautomaten des Jahres 2026")
+        title, ok = sdf.enforce_title_length(long)
+        self.assertTrue(ok)
+        self.assertTrue(sdf.TITLE_MIN <= len(title) <= sdf.TITLE_MAX, len(title))
+
+    def test_already_in_window_untouched(self):
+        exact = "Kaffeevollautomat Test 2026 - die besten Modelle im" + "x" * 4
+        self.assertTrue(sdf.TITLE_MIN <= len(exact) <= sdf.TITLE_MAX)
+        title, ok = sdf.enforce_title_length(exact)
+        self.assertTrue(ok)
+        self.assertEqual(title, exact)
+
+    def test_strips_wrapping_quotes(self):
+        title, _ = sdf.enforce_title_length('"iPhone 15 Test"')
+        self.assertFalse(title.startswith('"'))
+
+
+class FetchMetaTitleTests(unittest.TestCase):
+    def test_extracts_title(self):
+        html_page = (b"<html><head><title>Kaffee &amp; Tee - Test 2026</title>"
+                     b"</head><body>x</body></html>")
+
+        class Resp:
+            headers = type("H", (), {"get_content_charset": lambda self: "utf-8"})()
+
+            def read(self, n=None):
+                return html_page
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        with patch("striking_distance_finder.urllib.request.urlopen",
+                   return_value=Resp()):
+            title, status = sdf.fetch_meta_title("https://example.com")
+        self.assertEqual(status, "ok")
+        self.assertEqual(title, "Kaffee & Tee - Test 2026")
+
+    def test_no_url(self):
+        title, status = sdf.fetch_meta_title("(keine URL)")
+        self.assertIsNone(title)
+        self.assertEqual(status, "no_url")
+
+    def test_http_error_is_caught(self):
+        with patch("striking_distance_finder.urllib.request.urlopen",
+                   side_effect=http_error(404)):
+            title, status = sdf.fetch_meta_title("https://example.com")
+        self.assertIsNone(title)
+        self.assertEqual(status, "http_404")
+
+
+class GeminiMetaTitleTests(unittest.TestCase):
     def test_no_key(self):
-        results, status = sdf.gemini_deep_dive(self._rows(), "")
+        title, status = sdf.gemini_meta_title("iphone test", api_key="")
         self.assertEqual(status, "no_api_key")
 
-    def test_success_maps_by_index(self):
-        payload = {"candidates": [{"content": {"parts": [{"text": json.dumps(
-            [{"index": 0, "diagnosis": "Title schwach", "action": "Title umschreiben"}]
-        )}]}}]}
-        with patch("striking_distance_finder.urllib.request.urlopen") as m:
-            m.return_value = FakeResponse(payload)
-            results, status = sdf.gemini_deep_dive(self._rows(), "key")
-        self.assertEqual(status, "ok")
-        self.assertEqual(results[0]["diagnosis"], "Title schwach")
+    def test_no_keywords(self):
+        title, status = sdf.gemini_meta_title("   ", api_key="key")
+        self.assertEqual(status, "no_keywords")
 
-    def test_parse_error_on_bad_json(self):
-        payload = {"candidates": [{"content": {"parts": [{"text": "not json"}]}}]}
-        with patch("striking_distance_finder.urllib.request.urlopen") as m:
-            m.return_value = FakeResponse(payload)
-            results, status = sdf.gemini_deep_dive(self._rows(), "key")
-        self.assertEqual(status, "parse_error")
+    def test_output_is_length_enforced(self):
+        payload = {"candidates": [{"content": {"parts": [
+            {"text": "iPhone 15 Test"}]}}]}  # too short -> must be padded
+        with patch("striking_distance_finder.urllib.request.urlopen",
+                   return_value=FakeResponse(payload)):
+            title, status = sdf.gemini_meta_title("iphone test", api_key="key")
+        self.assertEqual(status, "ok")
+        self.assertTrue(sdf.TITLE_MIN <= len(title) <= sdf.TITLE_MAX, len(title))
+
+    def test_accepts_keyword_list(self):
+        payload = {"candidates": [{"content": {"parts": [
+            {"text": "VPN Test & Streaming Vergleich 2026 - die besten Anbieter"}]}}]}
+        with patch("striking_distance_finder.urllib.request.urlopen",
+                   return_value=FakeResponse(payload)):
+            title, status = sdf.gemini_meta_title(["vpn test", "streaming vpn"],
+                                                  api_key="key")
+        self.assertIn(status, ("ok", "length_warn"))
+        self.assertTrue(sdf.TITLE_MIN <= len(title) <= sdf.TITLE_MAX, len(title))
 
 
 if __name__ == "__main__":

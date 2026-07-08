@@ -7,9 +7,11 @@ top positions, with real impression volume, ranked by estimated click upside.
 
 The reasoning for every keyword is generated *deterministically* from the
 numbers — using a CTR baseline calibrated from the site's own data per position
-bucket. No API key, no network, no cost. An optional LLM "deep dive" (free
-Gemini tier) can enrich the top-N rows when a key is available; everything works
-fully without it.
+bucket. No API key, no network, no cost. Optionally, the current meta title of
+each page can be scraped and checked against its keyword (fuzzy, tolerant of
+singular/plural, punctuation and filler words), and an LLM (free Gemini tier)
+can propose an improved 52–59 character title when a key is available; the core
+analysis works fully without any of that.
 
 CLI usage:
     python striking_distance_finder.py sample_gsc.csv
@@ -19,11 +21,14 @@ CLI usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import html
 import io
 import json
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import pandas as pd
@@ -250,6 +255,44 @@ def _brand_pattern(terms) -> str:
     return r"(?<!\w)(?:" + "|".join(escaped) + r")(?!\w)"
 
 
+# Multi-part public suffixes we skip past to reach the real brand label.
+_MULTI_TLDS = {"co.uk", "com.au", "co.nz", "co.jp", "com.br", "co.za",
+               "com.tr", "co.in", "com.mx", "or.at", "co.at"}
+# Generic labels that are never a brand even if they land in the brand slot.
+_NON_BRAND_LABELS = {"com", "net", "org", "www", "co"}
+
+
+def detect_brand_terms(pages) -> list:
+    """Derive likely brand token(s) from the domains in the page column.
+
+    e.g. https://www.cloudwards.net/foo -> "cloudwards". Returns the tokens
+    ordered by how often they appear (most common domain first). Rows without a
+    usable URL are ignored, so an export without the Page dimension yields [].
+    """
+    counts = {}
+    for page in ([] if pages is None else pages):
+        s = str(page).strip()
+        if not s or s == "(keine URL)":
+            continue
+        try:
+            parsed = urllib.parse.urlparse(s if "//" in s else "//" + s)
+            host = (parsed.hostname or "").lower()
+        except ValueError:
+            continue
+        if host.startswith("www."):
+            host = host[4:]
+        labels = [l for l in host.split(".") if l]
+        if len(labels) < 2:
+            continue
+        if len(labels) >= 3 and ".".join(labels[-2:]) in _MULTI_TLDS:
+            brand = labels[-3]
+        else:
+            brand = labels[-2]
+        if brand and brand not in _NON_BRAND_LABELS:
+            counts[brand] = counts.get(brand, 0) + 1
+    return [b for b, _ in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)]
+
+
 def calculate_baseline(df: pd.DataFrame, brand_terms=(),
                        min_samples: int = DEFAULT_MIN_SAMPLES):
     """Return (baseline_ctr_by_bucket, fallback_used_by_bucket)."""
@@ -380,7 +423,206 @@ def parse_brand_terms(text) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Optional LLM "deep dive" (free Gemini tier) — never required, degrades cleanly
+# Meta-title scraping (free, standard library only) & fuzzy keyword matching
+# --------------------------------------------------------------------------- #
+
+_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+
+
+def fetch_meta_title(url, timeout: int = 10):
+    """Fetch a page and extract its <title>. Returns (title|None, status).
+
+    Free, no API: a plain HTTP GET with a browser User-Agent + a regex over the
+    first bytes of HTML. Never raises — every failure is reported via `status`
+    ("ok", "no_url", "no_title", "http_<code>", "error").
+    """
+    s = str(url).strip()
+    if not s or s == "(keine URL)":
+        return None, "no_url"
+    if "//" not in s:
+        s = "https://" + s
+    request = urllib.request.Request(s, headers={"User-Agent": _USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read(200_000)  # title lives in <head>; cap the read
+            charset = response.headers.get_content_charset() or "utf-8"
+    except urllib.error.HTTPError as exc:
+        return None, f"http_{exc.code}"
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        return None, "error"
+    text = raw.decode(charset, errors="replace")
+    match = _TITLE_RE.search(text)
+    if not match:
+        return None, "no_title"
+    title = re.sub(r"\s+", " ", html.unescape(match.group(1))).strip()
+    return (title, "ok") if title else (None, "no_title")
+
+
+def fetch_meta_titles(urls, max_workers: int = 8, timeout: int = 10) -> dict:
+    """Scrape titles for a list of URLs in parallel. Returns {url: title|None}.
+
+    De-duplicates URLs; the same URL is never fetched twice.
+    """
+    unique = [u for u in dict.fromkeys(str(u) for u in (urls or []))]
+    results = {}
+    if not unique:
+        return results
+    workers = max(1, min(max_workers, len(unique)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        future_to_url = {pool.submit(fetch_meta_title, u, timeout): u
+                         for u in unique}
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                title, _status = future.result()
+            except Exception:
+                title = None
+            results[url] = title
+    return results
+
+
+# Umlaut / accent folding so "Kaffeemaschinen" and "kaffeemaschine" compare cleanly.
+_FOLD_MAP = str.maketrans({"ä": "a", "ö": "o", "ü": "u", "ß": "ss", "à": "a",
+                           "á": "a", "â": "a", "é": "e", "è": "e", "ê": "e",
+                           "í": "i", "ì": "i", "ó": "o", "ò": "o", "ú": "u",
+                           "ç": "c", "ñ": "n"})
+
+# Filler words that may sit between keyword words in a title (and vice versa).
+_GERMAN_STOPWORDS = {
+    "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem",
+    "einer", "eines", "und", "oder", "im", "in", "am", "an", "auf", "aus", "bei",
+    "mit", "nach", "von", "vom", "zu", "zur", "zum", "fur", "als", "auch", "wie",
+    "the", "a", "of", "for", "is", "vs", "on", "at", "das", "so", "es",
+}
+
+
+def _fold(text) -> str:
+    return str(text).lower().translate(_FOLD_MAP)
+
+
+def _tokens(text) -> list:
+    return [t for t in re.split(r"[^0-9a-z]+", _fold(text)) if t]
+
+
+def _stem(token: str) -> str:
+    """Very light German stemmer: strip a common plural/inflection suffix."""
+    for suffix in ("ern", "en", "er", "es", "e", "n", "s"):
+        if token.endswith(suffix) and len(token) - len(suffix) >= 4:
+            return token[: -len(suffix)]
+    return token
+
+
+def _levenshtein(a: str, b: str) -> int:
+    if a == b:
+        return 0
+    if not a or not b:
+        return len(a) or len(b)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost))
+        prev = cur
+    return prev[-1]
+
+
+def _token_match(kw: str, title_tok: str) -> bool:
+    """One keyword word vs one title word, tolerant of plural/typo variants."""
+    if kw == title_tok:
+        return True
+    ks, ts = _stem(kw), _stem(title_tok)
+    if ks == ts:
+        return True
+    shorter, longer = sorted((kw, title_tok), key=len)
+    if len(shorter) >= 4 and longer.startswith(shorter):  # kaffeemaschine⊂kaffeemaschinen
+        return True
+    if min(len(kw), len(title_tok)) >= 5 and _levenshtein(ks, ts) <= 1:
+        return True
+    return False
+
+
+def keyword_in_title(keyword, title) -> bool:
+    """Is `keyword` (fuzzily) present in `title`?
+
+    Tolerant by design — order-independent, ignores punctuation, filler words
+    and singular/plural differences. Every significant keyword word must have a
+    matching word somewhere in the title. Examples that match:
+      "iphone test"            ⊂ "iPhone im Test"
+      "kaffeemaschine vergleich" ⊂ "Vergleich: die besten Kaffeemaschinen …"
+    """
+    kw_tokens = _tokens(keyword)
+    significant = [t for t in kw_tokens if t not in _GERMAN_STOPWORDS] or kw_tokens
+    if not significant:
+        return False
+    title_tokens = _tokens(title)
+    if not title_tokens:
+        return False
+    return all(any(_token_match(kt, tt) for tt in title_tokens)
+               for kt in significant)
+
+
+# --------------------------------------------------------------------------- #
+# Meta-title length enforcement (the hard 52–59 char double-check)
+# --------------------------------------------------------------------------- #
+
+TITLE_MIN = 52
+TITLE_MAX = 59
+
+# Ordered from long to short so padding overshoots the window as rarely as
+# possible; the enforcer stops as soon as it reaches TITLE_MIN.
+_TITLE_FILLERS = (" – Test, Vergleich & Empfehlung", " – die besten Modelle im Test",
+                  " – Test, Vergleich & Kaufberatung", " – der große Vergleich 2026",
+                  " – Ratgeber, Test & Vergleich", " im Test & Vergleich 2026",
+                  " – die besten Modelle", " – Test & Vergleich", " im Vergleich 2026",
+                  " – Ratgeber 2026", " im Test 2026", " – Vergleich", " im Test", " 2026")
+
+
+def _trim_words_to(title: str, hi: int) -> str:
+    if len(title) <= hi:
+        return title
+    out = ""
+    for word in title.split(" "):
+        candidate = (out + " " + word).strip()
+        if len(candidate) > hi:
+            break
+        out = candidate
+    return out or title[:hi].rstrip()
+
+
+def enforce_title_length(title, lo: int = TITLE_MIN, hi: int = TITLE_MAX,
+                         filler_terms=None):
+    """Guarantee a title length inside [lo, hi]. Returns (title, ok).
+
+    This is the deterministic double-check: LLMs count characters unreliably, so
+    every generated title is passed through here. Too long -> trimmed at a word
+    boundary; too short -> padded from ranked filler snippets without ever
+    exceeding `hi`. `ok` is False only when no assembly fits (e.g. a single word
+    already longer than `hi`), which the UI surfaces as "manuell prüfen".
+    """
+    title = re.sub(r"\s+", " ", str(title)).strip().strip('"').strip("»«").strip()
+    if len(title) > hi:
+        title = _trim_words_to(title, hi)
+    if len(title) < lo:
+        fillers = tuple(filler_terms or ()) + _TITLE_FILLERS
+        # Prefer a single filler that lands the title inside the window — keeps
+        # the result readable instead of chaining several snippets.
+        single = next((title + f for f in fillers if lo <= len(title + f) <= hi), None)
+        if single is not None:
+            title = single
+        else:  # no single fit: stack conservatively, never the same snippet twice
+            for filler in fillers:
+                if len(title) >= lo:
+                    break
+                if filler not in title and len(title + filler) <= hi:
+                    title += filler
+    return title, (lo <= len(title) <= hi)
+
+
+# --------------------------------------------------------------------------- #
+# Optional LLM (free Gemini tier) — meta-title suggestions; degrades cleanly
 # --------------------------------------------------------------------------- #
 
 DEFAULT_AI_MODEL = "gemini-3.5-flash"
@@ -392,8 +634,14 @@ _GEMINI_ENDPOINT = ("https://generativelanguage.googleapis.com/v1beta/"
 def _call_gemini(prompt: str, api_key: str, model: str = DEFAULT_AI_MODEL,
                  timeout: int = 40, temperature: float = 0.4,
                  max_output_tokens: int = 4096, response_schema: dict | None = None,
+                 thinking_budget: int | None = None,
                  fallback_models=AI_MODEL_FALLBACKS):
-    """Call Gemini generateContent. Returns (text|None, status). Never raises."""
+    """Call Gemini generateContent. Returns (text|None, status). Never raises.
+
+    `thinking_budget=0` disables the model's internal "thinking" — essential for
+    short tasks like a title, where a thinking model would otherwise spend the
+    whole token budget reasoning and return a truncated answer.
+    """
     if not api_key:
         return None, "no_api_key"
 
@@ -402,6 +650,8 @@ def _call_gemini(prompt: str, api_key: str, model: str = DEFAULT_AI_MODEL,
     if response_schema is not None:
         generation_config["responseMimeType"] = "application/json"
         generation_config["responseSchema"] = response_schema
+    if thinking_budget is not None:
+        generation_config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
 
     body = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
@@ -433,90 +683,51 @@ def _call_gemini(prompt: str, api_key: str, model: str = DEFAULT_AI_MODEL,
     return None, "failed"
 
 
-_DEEP_DIVE_SCHEMA = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "index": {"type": "integer"},
-            "diagnosis": {"type": "string"},
-            "action": {"type": "string"},
-        },
-        "required": ["index", "diagnosis", "action"],
-    },
-}
+def gemini_meta_title(keywords, current_title: str = "", api_key: str = "",
+                      brand: str = "", model: str = DEFAULT_AI_MODEL):
+    """Propose a German meta title of 52–59 characters covering the keyword(s).
 
+    `keywords` is a single keyword string or a list of keywords (the multi-
+    keyword form is used for the per-page grouped view, where one title should
+    cover as many striking-distance keywords of that URL as possible).
+    `current_title` is the scraped title, given to the model as context.
 
-def gemini_deep_dive(rows: list, api_key: str, page_context: dict | None = None,
-                     model: str = DEFAULT_AI_MODEL):
+    Returns (title, status). The raw model output is ALWAYS passed through
+    `enforce_title_length`, so a returned title is guaranteed to be within the
+    window (status "ok") or flagged (status "length_warn") — never silently the
+    wrong length. Never raises.
     """
-    Enrich the top-N striking-distance rows with an LLM diagnosis + action.
-
-    `rows` is a list of dicts (query, page, position, ctr, expected_ctr,
-    impressions, clicks, click_upside). `page_context` optionally maps a page URL
-    to its pasted title/meta text — that's what makes the LLM genuinely better
-    than the deterministic reasoning. Returns (results_by_index, status); results
-    is {index: {"diagnosis", "action"}}. Never raises.
-    """
+    if isinstance(keywords, str):
+        keywords = [keywords]
+    keywords = [str(k).strip() for k in (keywords or []) if str(k).strip()]
+    if not keywords:
+        return "", "no_keywords"
     if not api_key:
-        return {}, "no_api_key"
-    if not rows:
-        return {}, "no_rows"
+        return "", "no_api_key"
 
-    page_context = page_context or {}
-    lines = []
-    for i, r in enumerate(rows):
-        ctx = (page_context.get(r.get("page", "")) or "").strip()
-        ctx_str = f" | Aktueller Title/Meta: {ctx}" if ctx else ""
-        lines.append(
-            f"{i}. Keyword: \"{r.get('query','')}\" | Seite: {r.get('page','')} | "
-            f"Position: {float(r.get('position', 0)):.1f} | "
-            f"CTR: {float(r.get('ctr', 0))*100:.1f}% "
-            f"(Ø für diese Position: {float(r.get('expected_ctr', 0))*100:.1f}%) | "
-            f"Impressionen: {int(r.get('impressions', 0))} | "
-            f"Klicks: {int(r.get('clicks', 0))} | "
-            f"Klick-Potenzial: +{int(r.get('click_upside', 0))}{ctx_str}"
-        )
+    kw_str = "; ".join(keywords)
+    ctx = f"\nAktueller Title (zur Orientierung): {current_title}" if current_title else ""
+    coverage = ("Decke MÖGLICHST VIELE der Keywords in einem einzigen Title ab.\n"
+                if len(keywords) > 1 else "")
     prompt = (
-        "Du bist ein erfahrener SEO-Stratege. Analysiere diese Striking-Distance-"
-        "Keywords (rankt knapp unter den Top-Positionen). Gib für jedes eine "
-        "kurze, konkrete Empfehlung.\n\n"
-        + "\n".join(lines)
-        + "\n\nRegeln:\n"
-        "- Antworte NUR als JSON-Array, ein Objekt pro Keyword.\n"
-        "- Felder: index (Zahl), diagnosis (1 Satz: die wahrscheinlichste Ursache "
-        "für die Unterperformance — Intent-Mismatch, schwacher Title/Meta, "
-        "fehlender Content-Block o.ä., nur plausibel, nichts erfinden), "
-        "action (1 konkreter, sofort umsetzbarer Schritt).\n"
-        "- Keine Floskeln wie 'Content verbessern'. Sei spezifisch und beziehe "
-        "dich auf das konkrete Keyword.\n"
-        "- Deutsch."
+        "Formuliere genau EINEN deutschen SEO-Meta-Title.\n"
+        f"Pflicht-Keyword(s) (dürfen als Singular/Plural erscheinen): {kw_str}.\n"
+        f"{coverage}"
+        f"Der Title MUSS zwischen {TITLE_MIN} und {TITLE_MAX} Zeichen lang sein "
+        "(inklusive Leerzeichen)."
+        f"{ctx}\n"
+        "Regeln: natürlich und klickstark formulieren, keine Anführungszeichen, "
+        "kein Markdown, nur der Title als eine einzige Zeile."
     )
 
-    text, status = _call_gemini(prompt, api_key, model=model, temperature=0.4,
-                                max_output_tokens=4096,
-                                response_schema=_DEEP_DIVE_SCHEMA)
+    text, status = _call_gemini(prompt, api_key, model=model, temperature=0.5,
+                                max_output_tokens=256, thinking_budget=0)
     if text is None:
-        return {}, status
-    try:
-        parsed = json.loads(text)
-    except (ValueError, TypeError):
-        return {}, "parse_error"
-    if not isinstance(parsed, list):
-        return {}, "parse_error"
-
-    results = {}
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            continue
-        idx = entry.get("index")
-        if not isinstance(idx, int):
-            continue
-        results[idx] = {
-            "diagnosis": str(entry.get("diagnosis", "")).strip(),
-            "action": str(entry.get("action", "")).strip(),
-        }
-    return results, ("ok" if results else "parse_error")
+        return "", status
+    candidate = text.strip().splitlines()[0] if text.strip() else ""
+    filler_terms = [f" – {brand}"] if brand else None
+    title, ok = enforce_title_length(candidate, filler_terms=filler_terms)
+    return title, ("ok" if ok else "length_warn")
 
 
 # --------------------------------------------------------------------------- #
