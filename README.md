@@ -79,11 +79,11 @@ python striking_distance_finder.py sample_gsc.csv \
 
 ## Meta-Titles & optionaler Title-Vorschlag
 
-Im Bereich **»Meta-Titles prüfen & optimieren«** (unter den Kennzahlen) auf
-**»Meta-Titles abrufen & prüfen«** klicken. Das Tool ruft die `<title>` der
-Seiten ab und füllt die Spalten **Keyword enthalten** und **Meta Title aktuell**
-— komplett kostenlos und ohne Key. Seiten, die den Abruf blockieren, lassen sich
-über das Textfeld manuell ergänzen (`URL-Fragment | Meta Title`).
+In der Tabelle die gewünschten Zeilen über die Spalte **»Meta-Title optimieren«**
+anhaken und dann (unten links) auf **»Meta-Titles der Auswahl prüfen &
+optimieren«** klicken. Das Tool ruft die `<title>` der ausgewählten Seiten ab und
+füllt die Spalten **Keyword enthalten** und **Meta Title aktuell** — komplett
+kostenlos und ohne Key. Dasselbe geht im Tab **»Nach Seite gruppiert«** pro URL.
 
 Für die Spalte **Meta Title neu (Vorschlag)** (52–59 Zeichen) einen kostenlosen
 Gemini-Key hinterlegen:

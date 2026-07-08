@@ -38,6 +38,11 @@ st.markdown(
         background: rgba(128,128,128,.65); border-radius: 7px;
         border: 3px solid transparent; background-clip: content-box; }
     .dvn-scroller::-webkit-scrollbar-track { background: rgba(128,128,128,.18); }
+    /* CSV-Download-Button blau mit weißem Text/Icon */
+    [data-testid="stDownloadButton"] button {
+        background-color: #1f6feb !important; border-color: #1f6feb !important; }
+    [data-testid="stDownloadButton"] button,
+    [data-testid="stDownloadButton"] button * { color: #ffffff !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -84,12 +89,13 @@ SELECT_COL = "Meta-Title optimieren"
 META_COLS = ["Keyword enthalten", "Meta Title aktuell", "Meta Title neu (Vorschlag)"]
 
 
-def display_frame(candidates: pd.DataFrame, value_per_click, meta=None):
+def display_frame(candidates: pd.DataFrame, show_cpc, meta=None):
     """Build the keyword table for st.data_editor. Returns (df, gray_columns).
 
     Column order: [checkbox] Keyword | Seite | <3 Meta-Spalten nach Optimierung>
     | Zahlen … . The 3 meta columns are only added once results exist and are
-    returned as `gray_columns` so the caller can shade them.
+    returned as `gray_columns` so the caller can shade them. `show_cpc` adds an
+    (empty) CPC column — the value needs a paid API and stays blank.
     """
     disp = pd.DataFrame()
     disp[SELECT_COL] = [False] * len(candidates)
@@ -125,8 +131,8 @@ def display_frame(candidates: pd.DataFrame, value_per_click, meta=None):
     disp["CTR %"] = (candidates["ctr"] * 100).round(2).values
     disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2).values
     disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int).values
-    if value_per_click and "est_revenue_upside" in candidates:
-        disp["Umsatz-Potenzial €"] = candidates["est_revenue_upside"].round(2).values
+    if show_cpc:
+        disp["CPC"] = ["" for _ in range(len(candidates))]  # braucht kostenpfl. API
     disp["Begründung"] = candidates["reasoning"].values
     return disp, gray_cols
 
@@ -297,9 +303,7 @@ def run_meta_analysis(selected_kw: pd.DataFrame, selected_pages: list,
 # Sidebar
 # --------------------------------------------------------------------------- #
 
-st.sidebar.title("🎯 Striking Distance Finder")
-st.sidebar.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen "
-                   "— mit den wichtigsten Zahlen und einer Begründung je Zeile.")
+st.sidebar.title("Datensatz & Filter")
 
 source = st.sidebar.radio("Datenquelle", ["Demo-Daten", "GSC-CSV hochladen"])
 
@@ -326,10 +330,9 @@ brand_input = st.sidebar.text_input(
          "erkannt und ergänzt.")
 exclude_brand = st.sidebar.checkbox("Marken-Keywords auch aus der Liste ausschließen")
 use_revenue = st.sidebar.checkbox("Umsatz-Hebel berechnen")
-value_per_click = None
 if use_revenue:
-    value_per_click = st.sidebar.number_input("Wert pro Klick (€)", 0.0, 1000.0,
-                                              2.50, step=0.50)
+    st.sidebar.caption("ℹ️ Berechnung nur mit kostenpflichtiger API möglich.")
+value_per_click = None  # kein Umsatz-Wert -> die CPC-Spalte bleibt leer
 
 manual_brand_terms = tuple(sdf.parse_brand_terms(brand_input))
 
@@ -338,7 +341,74 @@ manual_brand_terms = tuple(sdf.parse_brand_terms(brand_input))
 # Main
 # --------------------------------------------------------------------------- #
 
-st.title("Striking Distance Keywords")
+@st.dialog("So funktioniert's – Erklärung & Dokumentation", width="large")
+def show_help():
+    st.markdown(
+        """
+        ### TL;DR – die wichtigsten Hebel
+
+        - **Grün hinterlegte Zeilen = die vielversprechendsten Keywords.** Sortiere
+          die Tabelle über die Spalte **»Klick-Potenzial/Monat«** (Klick auf den
+          Spaltenkopf), um sie oben zu sehen.
+        - **Meta-Titles prüfen & optimieren:** Häkchen in der Spalte
+          **»Meta-Title optimieren«** setzen → unten links auf den roten Button
+          klicken. Dann erscheinen (grau) nach der URL: *Keyword enthalten*,
+          *Meta Title aktuell* und *Meta Title neu (Vorschlag)*.
+        - **Nach Seite gruppiert** (2. Tab): zeigt URLs mit mehreren Chancen; der
+          Titel-Vorschlag deckt dort mehrere Keywords einer Seite ab.
+        - **Filter links** steuern, was gefunden wird (Positions-Bereich,
+          Mindest-Impressionen, Unterperformance-Schwelle, Marken).
+        - **⬇️ Liste als CSV** (unten rechts) exportiert die Tabelle.
+
+        ---
+        ### Was macht dieses Tool? (für SEO-Einsteiger)
+
+        Es liest den **Leistungs-Export deiner Google Search Console** (Suchanfragen
+        + Seiten) und findet **Striking-Distance-Keywords**: Suchbegriffe, für die du
+        schon *knapp unter* den Top-Plätzen rankst (Standard: Position 4–20) und die
+        genug Impressionen haben. Das sind die Begriffe, bei denen wenig Aufwand oft
+        die meisten zusätzlichen Klicks bringt.
+
+        **Die wichtigsten Spalten**
+        - **Position** – dein durchschnittliches Ranking.
+        - **Impressionen / Klicks / CTR %** – wie oft du gesehen/geklickt wirst.
+        - **Ø-CTR Position %** – die für diese Position *normale* CTR, berechnet aus
+          deinen eigenen Daten. Liegt deine CTR deutlich darunter, ist der Hebel oft
+          ein besserer Title/Snippet (kein neues Ranking nötig).
+        - **Klick-Potenzial/Monat** – geschätzte zusätzliche Klicks, wenn das Keyword
+          auf Top-3 steigt. Danach sortieren = größte Chancen zuerst.
+        - **Begründung** – ein Satz, warum das Keyword eine Chance ist.
+
+        **Filter links (Datensatz & Filter)**
+        - **Datenquelle** – Demo-Daten oder eigenen GSC-CSV-Export hochladen.
+        - **Positions-Bereich** – welcher Ranking-Bereich als „striking distance“ gilt.
+        - **Mindest-Impressionen/Monat** – blendet zu kleine Keywords aus.
+        - **Unterperformance-Schwelle** – ab wann eine CTR als „zu niedrig“ gilt.
+        - **Marken-Begriffe / ausschließen** – Marke wird aus deiner Domain automatisch
+          erkannt; Marken-Suchanfragen kannst du aus der Liste ausblenden (und einzelne
+          wieder aufnehmen).
+
+        **Meta-Title-Optimierung**
+        Der aktuelle Seitentitel wird kostenlos abgerufen und geprüft, ob dein Keyword
+        (auch als Singular/Plural, mit Füllwörtern oder anderer Reihenfolge) darin
+        vorkommt. Mit hinterlegtem (kostenlosem) Gemini-Key bekommst du zusätzlich einen
+        neuen Titel-Vorschlag mit garantiert 52–59 Zeichen. Ohne Key funktionieren Abruf
+        und Keyword-Check trotzdem.
+
+        > Tipp: Erst nach **Klick-Potenzial** sortieren, die grünen Zeilen ansehen,
+        > die spannendsten anhaken und die Meta-Titles optimieren.
+        """
+    )
+
+
+col_head, col_help = st.columns([3, 1])
+with col_help:
+    if st.button("❓ So funktioniert's", width="stretch"):
+        show_help()
+
+st.title("Striking Distance Finder")
+st.caption("Findet Keywords, die knapp vor den Top-Platzierungen stehen — mit den "
+           "wichtigsten Zahlen und einer Begründung je Zeile.")
 
 if source == "GSC-CSV hochladen" and uploaded is None:
     st.info("Lade links deinen GSC-CSV-Export hoch — oder wähle **Demo-Daten**, "
@@ -413,61 +483,11 @@ total_upside = int(visible["opportunity_score"].sum())
 col1, col2, col3 = st.columns(3)
 col1.metric("Zeilen im Export", f"{len(df):,}".replace(",", "."))
 col2.metric("Striking-Distance-Keywords", f"{len(visible):,}".replace(",", "."))
-if use_revenue and value_per_click and "est_revenue_upside" in visible:
-    col3.metric("Umsatz-Potenzial/Monat",
-                f"{visible['est_revenue_upside'].sum():,.0f} €".replace(",", "."))
-else:
-    col3.metric("Klick-Potenzial/Monat", f"{total_upside:,}".replace(",", "."))
+col3.metric("Klick-Potenzial/Monat", f"{total_upside:,}".replace(",", "."))
 
-fallback_buckets = [b for b, used in fallback_used.items() if used]
-if fallback_buckets:
-    st.caption("ℹ️ Zu wenig eigene Daten in Positions-Bucket(s) "
-               + ", ".join(fallback_buckets)
-               + " — dort wird ein Richtwert statt deiner eigenen CTR verwendet.")
-
-# --- Meta-title trigger (acts on the rows checked in the tables below) --------
 brand_primary = detected[0] if detected else ""
 api_key = get_api_key()
 by_page = sdf.group_by_page(visible)
-
-st.subheader("✍️ Meta-Titles prüfen & optimieren")
-st.caption("Wähle unten in den Tabellen in der Spalte **»Meta-Title optimieren«** "
-           "die gewünschten Zeilen bzw. Seiten aus und klicke dann auf den Button. "
-           "Nur die ausgewählten Titel werden abgerufen, auf das Keyword geprüft und "
-           f"— mit Gemini-Key — auf {sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen optimiert.")
-with st.expander("Optional: Titles manuell einfügen (für Seiten, die den Abruf blockieren)"):
-    fallback_raw = st.text_area(
-        "Eine Zeile pro Seite: `URL-Fragment | Meta Title`", height=90,
-        key="fallback_raw",
-        placeholder="/kaffeevollautomat-test | Kaffeevollautomat Test 2026: die 7 besten Modelle")
-if not api_key:
-    st.info("Kein Gemini-Key hinterlegt: **Abruf + Keyword-Check funktionieren "
-            "trotzdem.** Für Titel-Vorschläge einen kostenlosen Key auf "
-            "[aistudio.google.com/apikey](https://aistudio.google.com/apikey) "
-            "erstellen und als `GEMINI_API_KEY` (Umgebungsvariable) bzw. "
-            "Streamlit-Secret hinterlegen.")
-
-if st.button("🔎 Meta-Titles der Auswahl prüfen & optimieren", type="primary"):
-    kw_idx = selected_indices("kw_editor")
-    pg_idx = selected_indices("page_editor")
-    if not kw_idx and not pg_idx:
-        st.warning("Bitte zuerst unten in einer Tabelle Zeilen über die Spalte "
-                   "»Meta-Title optimieren« auswählen.")
-    else:
-        selected_kw = visible.iloc[kw_idx] if kw_idx else visible.iloc[0:0]
-        selected_pages = [by_page.iloc[i]["page"] for i in pg_idx
-                          if i < len(by_page)]
-        run_meta_analysis(selected_kw, selected_pages, visible,
-                          st.session_state.get("fallback_raw", ""), api_key,
-                          brand_primary)
-
-meta = st.session_state.get("meta")
-if meta and meta.get("summary"):
-    st.caption("📄 " + meta["summary"])
-if meta and meta.get("kw_suggestions") == {} and meta.get("page_suggestions") == {} \
-        and not meta.get("had_key"):
-    st.caption("Titel-Vorschläge sind leer, weil kein Gemini-Key hinterlegt ist — "
-               "Keyword-Check und aktueller Title sind trotzdem gefüllt.")
 
 # Especially promising / profitable rows (green highlight).
 kw_promising = sdf.promising_mask(visible)
@@ -477,29 +497,69 @@ if not by_page.empty and by_page["total_upside"].max() > 0:
 else:
     page_promising = pd.Series(False, index=by_page.index)
 
+meta = st.session_state.get("meta")
 n_promising = int(kw_promising.sum())
 if n_promising:
     st.caption(f"🟢 **{n_promising} besonders vielversprechende Keyword(s)** sanft "
                "grün hervorgehoben — höchstes Klick-Potenzial und/oder CTR-"
-               "Unterperformer (schneller Hebel per Title/Snippet). Zahlengrundlage: "
-               "Position, Impressionen, Klicks & CTR.")
+               "Unterperformer (schneller Hebel per Title/Snippet). Nach "
+               "»Klick-Potenzial/Monat« sortieren zeigt sie oben.")
+if meta and meta.get("summary"):
+    st.caption("📄 " + meta["summary"])
+
+
+def handle_meta_click():
+    """Read the checked rows/pages, run the analysis, then refresh the tables."""
+    kw_idx = selected_indices("kw_editor")
+    pg_idx = selected_indices("page_editor")
+    if not kw_idx and not pg_idx:
+        st.warning("Bitte zuerst in einer Tabelle Zeilen über die Spalte "
+                   "»Meta-Title optimieren« anhaken.")
+        return
+    selected_kw = visible.iloc[kw_idx] if kw_idx else visible.iloc[0:0]
+    selected_pages = [by_page.iloc[i]["page"] for i in pg_idx if i < len(by_page)]
+    run_meta_analysis(selected_kw, selected_pages, visible, "", api_key,
+                      brand_primary)
+    st.rerun()  # re-render tables with the fresh results
+
 
 # --- Tabs --------------------------------------------------------------------
 tab_list, tab_pages = st.tabs(["📋 Keyword-Liste", "🗂️ Nach Seite gruppiert"])
 
 with tab_list:
-    disp, gray = display_frame(visible, value_per_click, meta=meta)
+    disp, gray = display_frame(visible, use_revenue, meta=meta)
     extra = {
+        "Position": st.column_config.NumberColumn(format="%.1f"),
         "CTR %": st.column_config.NumberColumn(format="%.2f %%"),
         "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
         "Begründung": st.column_config.TextColumn(width="large"),
     }
+    if "CPC" in disp.columns:
+        extra["CPC"] = st.column_config.TextColumn(
+            "CPC", help="Berechnung nur mit kostenpflichtiger API möglich.")
     render_selectable_table(disp, gray, key="kw_editor", extra_cfg=extra,
                             promising=kw_promising.tolist())
-    st.download_button(
-        "⬇️ Liste als CSV herunterladen",
-        disp.drop(columns=[SELECT_COL]).to_csv(index=False).encode("utf-8-sig"),
-        file_name="striking_distance_keywords.csv", mime="text/csv")
+
+    left, right = st.columns([3, 1])
+    with left:
+        meta_clicked = st.button(
+            "🔎 Meta-Titles der Auswahl prüfen & optimieren", type="primary")
+        note = ("Zeilen oben über »Meta-Title optimieren« anhaken, dann klicken — "
+                f"Titel werden abgerufen, geprüft und (mit Gemini-Key) auf "
+                f"{sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen optimiert.")
+        if not api_key:
+            note += (" Ohne Gemini-Key laufen Abruf + Keyword-Check trotzdem; für "
+                     "Vorschläge einen kostenlosen Key als `GEMINI_API_KEY` "
+                     "hinterlegen.")
+        st.caption(note)
+    with right:
+        st.download_button(
+            "Liste als CSV", icon=":material/download:", width="stretch",
+            data=disp.drop(columns=[SELECT_COL]).to_csv(index=False).encode("utf-8-sig"),
+            file_name="striking_distance_keywords.csv", mime="text/csv")
+
+    if meta_clicked:
+        handle_meta_click()
 
 with tab_pages:
     st.caption("Mehrere Chancen auf derselben URL — diese Seiten zuerst überarbeiten "
