@@ -24,6 +24,25 @@ st.set_page_config(page_title="Striking Distance Finder", page_icon="🎯",
 SAMPLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "sample_gsc.csv")
 
+TABLE_HEIGHT = 460  # fester Rahmen -> vertikaler Scrollbalken ist immer aktiv
+
+# Scrollbalken der Tabellen dauerhaft anzeigen (vertikal + horizontal). Das Grid
+# (glide-data-grid) scrollt über `.dvn-scroller`; overflow:scroll erzwingt die
+# Balken auch dann, wenn Inhalt gerade passt.
+st.markdown(
+    """
+    <style>
+    .dvn-scroller { overflow: scroll !important; }
+    .dvn-scroller::-webkit-scrollbar { width: 14px; height: 14px; -webkit-appearance: none; }
+    .dvn-scroller::-webkit-scrollbar-thumb {
+        background: rgba(128,128,128,.65); border-radius: 7px;
+        border: 3px solid transparent; background-clip: content-box; }
+    .dvn-scroller::-webkit-scrollbar-track { background: rgba(128,128,128,.18); }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -61,20 +80,23 @@ def analyze(file_bytes: bytes, pos_min: float, pos_max: float,
     return df, candidates, baseline, fallback_used, detected, brand_terms
 
 
-def display_frame(candidates: pd.DataFrame, value_per_click, meta=None) -> pd.DataFrame:
+SELECT_COL = "Meta-Title optimieren"
+META_COLS = ["Keyword enthalten", "Meta Title aktuell", "Meta Title neu (Vorschlag)"]
+
+
+def display_frame(candidates: pd.DataFrame, value_per_click, meta=None):
+    """Build the keyword table for st.data_editor. Returns (df, gray_columns).
+
+    Column order: [checkbox] Keyword | Seite | <3 Meta-Spalten nach Optimierung>
+    | Zahlen … . The 3 meta columns are only added once results exist and are
+    returned as `gray_columns` so the caller can shade them.
+    """
     disp = pd.DataFrame()
+    disp[SELECT_COL] = [False] * len(candidates)
     disp["Keyword"] = candidates["query"].values
     disp["Seite"] = candidates["page"].values
-    disp["Position"] = candidates["position"].round(1).values
-    disp["Impressionen"] = candidates["impressions"].astype(int).values
-    disp["Klicks"] = candidates["clicks"].astype(int).values
-    disp["CTR %"] = (candidates["ctr"] * 100).round(2).values
-    disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2).values
-    disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int).values
-    if value_per_click and "est_revenue_upside" in candidates:
-        disp["Umsatz-Potenzial €"] = candidates["est_revenue_upside"].round(2).values
-    disp["Begründung"] = candidates["reasoning"].values
 
+    gray_cols = []
     if meta and meta.get("titles") is not None:
         titles = meta["titles"]
         statuses = meta.get("statuses", {})
@@ -95,7 +117,71 @@ def display_frame(candidates: pd.DataFrame, value_per_click, meta=None) -> pd.Da
         disp["Keyword enthalten"] = contained
         disp["Meta Title aktuell"] = current
         disp["Meta Title neu (Vorschlag)"] = new
-    return disp
+        gray_cols = list(META_COLS)
+
+    disp["Position"] = candidates["position"].round(1).values
+    disp["Impressionen"] = candidates["impressions"].astype(int).values
+    disp["Klicks"] = candidates["clicks"].astype(int).values
+    disp["CTR %"] = (candidates["ctr"] * 100).round(2).values
+    disp["Ø-CTR Position %"] = (candidates["expected_ctr"] * 100).round(2).values
+    disp["Klick-Potenzial/Monat"] = candidates["opportunity_score"].astype(int).values
+    if value_per_click and "est_revenue_upside" in candidates:
+        disp["Umsatz-Potenzial €"] = candidates["est_revenue_upside"].round(2).values
+    disp["Begründung"] = candidates["reasoning"].values
+    return disp, gray_cols
+
+
+def page_frame(by_page: pd.DataFrame, meta=None):
+    """Build the grouped-by-page table for st.data_editor. Returns (df, gray)."""
+    show = pd.DataFrame()
+    show[SELECT_COL] = [False] * len(by_page)
+    show["Seite"] = by_page["page"].values
+
+    gray_cols = []
+    if meta and meta.get("page_suggestions"):
+        ps = meta["page_suggestions"]
+        show["Title-Vorschlag (mehrere KW)"] = [ps.get(p, {}).get("title", "")
+                                                for p in by_page["page"]]
+        show["Abgedeckte KW"] = [f"{ps[p]['covered']}/{ps[p]['n']}" if p in ps else ""
+                                 for p in by_page["page"]]
+        gray_cols = ["Title-Vorschlag (mehrere KW)", "Abgedeckte KW"]
+
+    show["Keywords"] = by_page["n_keywords"].values
+    show["Klick-Potenzial/Monat"] = by_page["total_upside"].values
+    show["Ø-Position"] = by_page["avg_position"].values
+    show["Top-Keywords"] = by_page["top_keywords"].values
+    return show, gray_cols
+
+
+def selected_indices(editor_key: str) -> list:
+    """Row positions the user checked in a data_editor (from its widget state)."""
+    state = st.session_state.get(editor_key)
+    if not isinstance(state, dict):
+        return []
+    edited = state.get("edited_rows", {})
+    return sorted(int(i) for i, ch in edited.items() if ch.get(SELECT_COL))
+
+
+def render_selectable_table(frame: pd.DataFrame, gray_cols, key, extra_cfg=None):
+    """Render a data_editor whose only editable column is the select checkbox."""
+    cfg = {
+        SELECT_COL: st.column_config.CheckboxColumn(
+            SELECT_COL, default=False,
+            help="Auswählen → oben auf »Meta-Titles der Auswahl prüfen & "
+                 "optimieren« klicken."),
+        "Seite": st.column_config.TextColumn(width="medium"),
+    }
+    if extra_cfg:
+        cfg.update(extra_cfg)
+    for col in gray_cols:  # give the meta columns room to read
+        cfg.setdefault(col, st.column_config.TextColumn(width="large"))
+    disabled = [c for c in frame.columns if c != SELECT_COL]
+    data = frame
+    if gray_cols:  # gray shading applies to disabled columns (Streamlit rule)
+        data = frame.style.set_properties(subset=gray_cols,
+                                          **{"background-color": "#eceef3"})
+    return st.data_editor(data, key=key, hide_index=True, width="stretch",
+                          height=TABLE_HEIGHT, column_config=cfg, disabled=disabled)
 
 
 def parse_fallback_titles(raw: str, pages) -> dict:
@@ -113,56 +199,64 @@ def parse_fallback_titles(raw: str, pages) -> dict:
     return out
 
 
-def run_meta_analysis(visible: pd.DataFrame, top_n: int, fallback_raw: str,
-                      api_key: str, brand: str):
-    """Scrape titles, check keyword containment, and (with a key) suggest titles.
+def run_meta_analysis(selected_kw: pd.DataFrame, selected_pages: list,
+                      all_rows: pd.DataFrame, fallback_raw: str, api_key: str,
+                      brand: str):
+    """Scrape + check + (with a key) optimize titles for the SELECTED rows/pages.
 
-    Results land in st.session_state["meta"] and drive the new table columns.
+    Results accumulate in st.session_state["meta"] across clicks, so earlier
+    optimizations stay filled while you add more selections.
     """
-    pages = [p for p in visible["page"].unique().tolist()
+    prev = st.session_state.get("meta") or {}
+    titles = dict(prev.get("titles") or {})
+    statuses = dict(prev.get("statuses") or {})
+    kw_suggestions = dict(prev.get("kw_suggestions") or {})
+    page_suggestions = dict(prev.get("page_suggestions") or {})
+
+    pages = [p for p in dict.fromkeys(list(selected_kw["page"]) + list(selected_pages))
              if p and p != "(keine URL)"]
-    with st.spinner(f"Rufe Meta-Titles von {len(pages)} Seiten ab …"):
-        scraped = sdf.fetch_meta_titles(pages)
-    titles = {url: title for url, (title, _status) in scraped.items()}
-    statuses = {url: status for url, (_title, status) in scraped.items()}
+    if pages:
+        with st.spinner(f"Rufe Meta-Titles von {len(pages)} Seite(n) ab …"):
+            scraped = sdf.fetch_meta_titles(pages)
+        for url, (title, status) in scraped.items():
+            titles[url], statuses[url] = title, status
     # Manually pasted titles win over (and repair) failed scrapes.
     for page, text in parse_fallback_titles(fallback_raw, pages).items():
-        titles[page] = text
-        statuses[page] = "ok"
+        titles[page], statuses[page] = text, "ok"
 
-    n_ok = sum(1 for t in titles.values() if t)
-    n_placeholder = sum(1 for s in statuses.values() if s == "placeholder")
-    summary = f"{n_ok}/{len(pages)} Titel erfolgreich abgerufen."
-    if n_ok < len(pages):
-        summary += " Fehlende Titel stehen mit Grund in der Spalte »Meta Title aktuell«."
-    if n_placeholder:
-        summary += (f" Hinweis: {n_placeholder} Demo-/Platzhalter-URL(s) (.example) "
-                    "sind technisch nicht abrufbar — mit echten GSC-Daten klappt der "
-                    "Abruf.")
+    n_ok = sum(1 for p in pages if titles.get(p))
+    n_placeholder = sum(1 for p in pages if statuses.get(p) == "placeholder")
+    if pages:
+        summary = f"{n_ok}/{len(pages)} Titel der Auswahl abgerufen."
+        if n_ok < len(pages):
+            summary += " Fehlende stehen mit Grund in »Meta Title aktuell«."
+        if n_placeholder:
+            summary += (f" {n_placeholder} Demo-/Platzhalter-URL(s) (.example) sind "
+                        "nicht abrufbar — mit echten GSC-Daten klappt der Abruf.")
+    else:
+        summary = "Keine Seiten in der Auswahl."
 
-    kw_suggestions, page_suggestions = {}, {}
-    if api_key:
-        top_rows = visible.head(int(top_n))
-        total = max(1, len(top_rows))
+    if api_key and len(selected_kw):
+        total = len(selected_kw)
         prog = st.progress(0.0, text="Erzeuge Titel-Vorschläge …")
         for i, (page, query) in enumerate(
-                zip(top_rows["page"], top_rows["query"]), 1):
+                zip(selected_kw["page"], selected_kw["query"]), 1):
             current = titles.get(page) or ""
-            title, status = sdf.gemini_meta_title(query, current, api_key, brand=brand)
-            kw_suggestions[(page, query)] = (title, status)
+            title, _status = sdf.gemini_meta_title(query, current, api_key, brand=brand)
+            kw_suggestions[(page, query)] = (title, _status)
             prog.progress(i / total, text=f"Titel-Vorschläge … ({i}/{total})")
         prog.empty()
 
-        # Per-page suggestion that tries to cover several keywords of one URL.
-        top_pages = (visible.groupby("page")["opportunity_score"].sum()
-                     .sort_values(ascending=False).head(int(top_n)).index.tolist())
+    if api_key and selected_pages:
         with st.spinner("Erzeuge seitenweise Multi-Keyword-Titel …"):
-            for page in top_pages:
-                if page == "(keine URL)":
+            for page in selected_pages:
+                if not page or page == "(keine URL)":
                     continue
-                rows = visible[visible["page"] == page].sort_values(
+                rows = all_rows[all_rows["page"] == page].sort_values(
                     "opportunity_score", ascending=False)
                 kws = rows["query"].tolist()[:4]
+                if not kws:
+                    continue
                 current = titles.get(page) or ""
                 title, status = sdf.gemini_meta_title(kws, current, api_key, brand=brand)
                 covered = sum(1 for k in kws if sdf.keyword_in_title(k, title))
@@ -307,33 +401,47 @@ if fallback_buckets:
                + ", ".join(fallback_buckets)
                + " — dort wird ein Richtwert statt deiner eigenen CTR verwendet.")
 
-# --- Meta-title panel (scrape + keyword check + optional AI suggestions) ------
+# --- Meta-title trigger (acts on the rows checked in the tables below) --------
 brand_primary = detected[0] if detected else ""
 api_key = get_api_key()
-with st.expander("✍️ Meta-Titles prüfen & optimieren", expanded=False):
-    st.caption("Ruft den aktuellen `<title>` jeder Seite ab (kostenlos, kein Key), "
-               "prüft ob das Keyword enthalten ist (auch bei Singular/Plural, "
-               "Füllwörtern oder anderer Reihenfolge) und schlägt — mit Gemini-Key "
-               f"— einen neuen Title mit {sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen vor.")
-    top_n = st.number_input("Für wie viele Top-Keywords/Seiten Titel-Vorschläge?",
-                            1, 50, 10)
+by_page = sdf.group_by_page(visible)
+
+st.subheader("✍️ Meta-Titles prüfen & optimieren")
+st.caption("Wähle unten in den Tabellen in der Spalte **»Meta-Title optimieren«** "
+           "die gewünschten Zeilen bzw. Seiten aus und klicke dann auf den Button. "
+           "Nur die ausgewählten Titel werden abgerufen, auf das Keyword geprüft und "
+           f"— mit Gemini-Key — auf {sdf.TITLE_MIN}–{sdf.TITLE_MAX} Zeichen optimiert.")
+with st.expander("Optional: Titles manuell einfügen (für Seiten, die den Abruf blockieren)"):
     fallback_raw = st.text_area(
-        "Optional: Titles manuell einfügen (für Seiten, die den Abruf blockieren). "
         "Eine Zeile pro Seite: `URL-Fragment | Meta Title`", height=90,
+        key="fallback_raw",
         placeholder="/kaffeevollautomat-test | Kaffeevollautomat Test 2026: die 7 besten Modelle")
-    if not api_key:
-        st.info("Kein Gemini-Key hinterlegt: **Abruf + Keyword-Check funktionieren "
-                "trotzdem.** Für Titel-Vorschläge einen kostenlosen Key auf "
-                "[aistudio.google.com/apikey](https://aistudio.google.com/apikey) "
-                "erstellen und als `GEMINI_API_KEY` (Umgebungsvariable) bzw. "
-                "Streamlit-Secret hinterlegen.")
-    if st.button("🔎 Meta-Titles abrufen & prüfen"):
-        run_meta_analysis(visible, int(top_n), fallback_raw, api_key, brand_primary)
+if not api_key:
+    st.info("Kein Gemini-Key hinterlegt: **Abruf + Keyword-Check funktionieren "
+            "trotzdem.** Für Titel-Vorschläge einen kostenlosen Key auf "
+            "[aistudio.google.com/apikey](https://aistudio.google.com/apikey) "
+            "erstellen und als `GEMINI_API_KEY` (Umgebungsvariable) bzw. "
+            "Streamlit-Secret hinterlegen.")
+
+if st.button("🔎 Meta-Titles der Auswahl prüfen & optimieren", type="primary"):
+    kw_idx = selected_indices("kw_editor")
+    pg_idx = selected_indices("page_editor")
+    if not kw_idx and not pg_idx:
+        st.warning("Bitte zuerst unten in einer Tabelle Zeilen über die Spalte "
+                   "»Meta-Title optimieren« auswählen.")
+    else:
+        selected_kw = visible.iloc[kw_idx] if kw_idx else visible.iloc[0:0]
+        selected_pages = [by_page.iloc[i]["page"] for i in pg_idx
+                          if i < len(by_page)]
+        run_meta_analysis(selected_kw, selected_pages, visible,
+                          st.session_state.get("fallback_raw", ""), api_key,
+                          brand_primary)
 
 meta = st.session_state.get("meta")
 if meta and meta.get("summary"):
     st.caption("📄 " + meta["summary"])
-if meta and not meta.get("had_key"):
+if meta and meta.get("kw_suggestions") == {} and meta.get("page_suggestions") == {} \
+        and not meta.get("had_key"):
     st.caption("Titel-Vorschläge sind leer, weil kein Gemini-Key hinterlegt ist — "
                "Keyword-Check und aktueller Title sind trotzdem gefüllt.")
 
@@ -341,40 +449,26 @@ if meta and not meta.get("had_key"):
 tab_list, tab_pages = st.tabs(["📋 Keyword-Liste", "🗂️ Nach Seite gruppiert"])
 
 with tab_list:
-    disp = display_frame(visible, value_per_click, meta=meta)
-    column_config = {
+    disp, gray = display_frame(visible, value_per_click, meta=meta)
+    extra = {
         "CTR %": st.column_config.NumberColumn(format="%.2f %%"),
         "Ø-CTR Position %": st.column_config.NumberColumn(format="%.2f %%"),
-        "Seite": st.column_config.TextColumn(width="medium"),
         "Begründung": st.column_config.TextColumn(width="large"),
     }
-    if "Meta Title neu (Vorschlag)" in disp.columns:
-        column_config["Meta Title aktuell"] = st.column_config.TextColumn(width="large")
-        column_config["Meta Title neu (Vorschlag)"] = st.column_config.TextColumn(width="large")
-    st.dataframe(disp, width="stretch", hide_index=True, column_config=column_config)
+    render_selectable_table(disp, gray, key="kw_editor", extra_cfg=extra)
     st.download_button(
         "⬇️ Liste als CSV herunterladen",
-        disp.to_csv(index=False).encode("utf-8-sig"),
+        disp.drop(columns=[SELECT_COL]).to_csv(index=False).encode("utf-8-sig"),
         file_name="striking_distance_keywords.csv", mime="text/csv")
 
 with tab_pages:
     st.caption("Mehrere Chancen auf derselben URL — diese Seiten zuerst überarbeiten "
                "hebt gleich mehrere Keywords. Der Titel-Vorschlag versucht, mehrere "
                "Striking-Distance-Keywords einer Seite abzudecken.")
-    by_page = sdf.group_by_page(visible)
-    show = by_page.rename(columns={
-        "page": "Seite", "n_keywords": "Keywords",
-        "total_upside": "Klick-Potenzial/Monat", "avg_position": "Ø-Position",
-        "top_keywords": "Top-Keywords"})
-    page_cfg = {"Top-Keywords": st.column_config.TextColumn(width="large")}
-    if meta and meta.get("page_suggestions"):
-        ps = meta["page_suggestions"]
-        show["Title-Vorschlag (mehrere KW)"] = by_page["page"].map(
-            lambda p: ps.get(p, {}).get("title", ""))
-        show["Abgedeckte KW"] = by_page["page"].map(
-            lambda p: f"{ps[p]['covered']}/{ps[p]['n']}" if p in ps else "")
-        page_cfg["Title-Vorschlag (mehrere KW)"] = st.column_config.TextColumn(width="large")
-    st.dataframe(show, width="stretch", hide_index=True, column_config=page_cfg)
+    page_disp, page_gray = page_frame(by_page, meta=meta)
+    render_selectable_table(
+        page_disp, page_gray, key="page_editor",
+        extra_cfg={"Top-Keywords": st.column_config.TextColumn(width="large")})
 
 st.divider()
 st.caption("Striking Distance Finder · GSC-basiert · CTR-Baseline aus deinen "
