@@ -429,6 +429,14 @@ def parse_brand_terms(text) -> list:
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+_REQUEST_HEADERS = {
+    "User-Agent": _USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+}
+# Reserved, non-resolving TLDs (RFC 2606/6761) — e.g. the demo's *.example URLs.
+# There is no point trying to fetch these; they can never resolve.
+_PLACEHOLDER_TLDS = (".example", ".test", ".invalid", ".localhost")
 
 
 def fetch_meta_title(url, timeout: int = 10):
@@ -436,14 +444,20 @@ def fetch_meta_title(url, timeout: int = 10):
 
     Free, no API: a plain HTTP GET with a browser User-Agent + a regex over the
     first bytes of HTML. Never raises — every failure is reported via `status`
-    ("ok", "no_url", "no_title", "http_<code>", "error").
+    ("ok", "no_url", "placeholder", "no_title", "http_<code>", "error").
     """
     s = str(url).strip()
     if not s or s == "(keine URL)":
         return None, "no_url"
     if "//" not in s:
         s = "https://" + s
-    request = urllib.request.Request(s, headers={"User-Agent": _USER_AGENT})
+    try:
+        host = (urllib.parse.urlparse(s).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if host.endswith(_PLACEHOLDER_TLDS):
+        return None, "placeholder"
+    request = urllib.request.Request(s, headers=_REQUEST_HEADERS)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read(200_000)  # title lives in <head>; cap the read
@@ -461,9 +475,11 @@ def fetch_meta_title(url, timeout: int = 10):
 
 
 def fetch_meta_titles(urls, max_workers: int = 8, timeout: int = 10) -> dict:
-    """Scrape titles for a list of URLs in parallel. Returns {url: title|None}.
+    """Scrape titles for a list of URLs in parallel. Returns {url: (title, status)}.
 
-    De-duplicates URLs; the same URL is never fetched twice.
+    De-duplicates URLs; the same URL is never fetched twice. The per-URL status
+    lets the caller explain *why* a title is missing (placeholder domain,
+    blocked, timeout, …) instead of a bare "not available".
     """
     unique = [u for u in dict.fromkeys(str(u) for u in (urls or []))]
     results = {}
@@ -476,11 +492,31 @@ def fetch_meta_titles(urls, max_workers: int = 8, timeout: int = 10) -> dict:
         for future in concurrent.futures.as_completed(future_to_url):
             url = future_to_url[future]
             try:
-                title, _status = future.result()
+                title, status = future.result()
             except Exception:
-                title = None
-            results[url] = title
+                title, status = None, "error"
+            results[url] = (title, status)
     return results
+
+
+def title_status_label(status) -> str:
+    """Human-readable German reason for a missing title (empty string if ok)."""
+    if not status or status == "ok":
+        return ""
+    labels = {
+        "no_url": "(keine URL)",
+        "placeholder": "(Demo-/Platzhalter-URL – nicht abrufbar)",
+        "no_title": "(kein <title> auf der Seite gefunden)",
+        "error": "(nicht erreichbar – Timeout/DNS/SSL)",
+    }
+    if status in labels:
+        return labels[status]
+    if status.startswith("http_"):
+        code = status[5:]
+        if code in ("401", "403", "429"):
+            return f"(Abruf blockiert – HTTP {code})"
+        return f"(HTTP-Fehler {code})"
+    return "(nicht abrufbar)"
 
 
 # Umlaut / accent folding so "Kaffeemaschinen" and "kaffeemaschine" compare cleanly.

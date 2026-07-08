@@ -61,14 +61,6 @@ def analyze(file_bytes: bytes, pos_min: float, pos_max: float,
     return df, candidates, baseline, fallback_used, detected, brand_terms
 
 
-def _contained_label(title, query) -> str:
-    if title is None:
-        return "?"        # page not (yet) scraped or not reachable
-    if not title:
-        return "?"
-    return "Ja" if sdf.keyword_in_title(query, title) else "Nein"
-
-
 def display_frame(candidates: pd.DataFrame, value_per_click, meta=None) -> pd.DataFrame:
     disp = pd.DataFrame()
     disp["Keyword"] = candidates["query"].values
@@ -85,13 +77,19 @@ def display_frame(candidates: pd.DataFrame, value_per_click, meta=None) -> pd.Da
 
     if meta and meta.get("titles") is not None:
         titles = meta["titles"]
+        statuses = meta.get("statuses", {})
         kw_sug = meta.get("kw_suggestions", {})
         current, contained, new = [], [], []
         for page, query in zip(candidates["page"], candidates["query"]):
             title = titles.get(page)
-            current.append(title if title else ("(nicht abrufbar)"
-                                                if page in titles else ""))
-            contained.append(_contained_label(title, query))
+            if title:
+                current.append(title)
+                contained.append("Ja" if sdf.keyword_in_title(query, title) else "Nein")
+            else:
+                # No title -> show the reason (placeholder domain, blocked, …).
+                current.append(sdf.title_status_label(statuses.get(page))
+                               if page in statuses else "")
+                contained.append("?")
             sug = kw_sug.get((page, query))
             new.append(sug[0] if sug else "")
         disp["Keyword enthalten"] = contained
@@ -124,8 +122,23 @@ def run_meta_analysis(visible: pd.DataFrame, top_n: int, fallback_raw: str,
     pages = [p for p in visible["page"].unique().tolist()
              if p and p != "(keine URL)"]
     with st.spinner(f"Rufe Meta-Titles von {len(pages)} Seiten ab …"):
-        titles = sdf.fetch_meta_titles(pages)
-    titles.update(parse_fallback_titles(fallback_raw, pages))
+        scraped = sdf.fetch_meta_titles(pages)
+    titles = {url: title for url, (title, _status) in scraped.items()}
+    statuses = {url: status for url, (_title, status) in scraped.items()}
+    # Manually pasted titles win over (and repair) failed scrapes.
+    for page, text in parse_fallback_titles(fallback_raw, pages).items():
+        titles[page] = text
+        statuses[page] = "ok"
+
+    n_ok = sum(1 for t in titles.values() if t)
+    n_placeholder = sum(1 for s in statuses.values() if s == "placeholder")
+    summary = f"{n_ok}/{len(pages)} Titel erfolgreich abgerufen."
+    if n_ok < len(pages):
+        summary += " Fehlende Titel stehen mit Grund in der Spalte »Meta Title aktuell«."
+    if n_placeholder:
+        summary += (f" Hinweis: {n_placeholder} Demo-/Platzhalter-URL(s) (.example) "
+                    "sind technisch nicht abrufbar — mit echten GSC-Daten klappt der "
+                    "Abruf.")
 
     kw_suggestions, page_suggestions = {}, {}
     if api_key:
@@ -156,9 +169,10 @@ def run_meta_analysis(visible: pd.DataFrame, top_n: int, fallback_raw: str,
                 page_suggestions[page] = {"title": title, "covered": covered,
                                           "n": len(kws), "status": status}
 
-    st.session_state["meta"] = {"titles": titles, "kw_suggestions": kw_suggestions,
+    st.session_state["meta"] = {"titles": titles, "statuses": statuses,
+                                "kw_suggestions": kw_suggestions,
                                 "page_suggestions": page_suggestions,
-                                "had_key": bool(api_key)}
+                                "had_key": bool(api_key), "summary": summary}
 
 
 # --------------------------------------------------------------------------- #
@@ -242,21 +256,28 @@ if candidates.empty:
 
 # --- Brand review: auto-detected brand keywords, exclusion + re-inclusion ----
 brand_queries = sorted(candidates.loc[candidates["is_brand"], "query"].unique().tolist())
+detected_str = ", ".join(detected) if detected else "—"
 reinclude = []
-if brand_terms and brand_queries:
-    detected_str = ", ".join(detected) if detected else "—"
-    st.caption(f"🏷️ **{len(brand_queries)} Marken-Keyword(s)** automatisch erkannt "
-               f"(Marke aus Domain: {detected_str}). "
-               + ("Sie werden aus der Liste ausgeschlossen — unten kannst du einzelne "
-                  "wieder aufnehmen." if exclude_brand else
-                  "Aktiviere links »Marken-Keywords auch aus der Liste ausschließen«, "
-                  "um sie auszublenden."))
-    if exclude_brand:
+if exclude_brand:
+    if brand_queries:
+        st.caption(f"🏷️ **{len(brand_queries)} Marken-Keyword(s)** erkannt (Marke aus "
+                   f"Domain: {detected_str}). Sie werden aus der Liste ausgeschlossen "
+                   "— unten kannst du einzelne wieder aufnehmen.")
         reinclude = st.multiselect(
             "Fälschlich als Marke erkannt? Diese Keywords wieder aufnehmen:",
             options=brand_queries, default=[],
             help="Standardmäßig gelten alle erkannten Marken-Keywords als Marke. "
                  "Hier ausgewählte Keywords bleiben in der Liste.")
+    else:
+        st.caption("🏷️ **Keine Marken-Keywords zum Ausschließen gefunden.** Erkannte "
+                   f"Marke aus deiner Domain: **{detected_str}** — kommt aber in keiner "
+                   "Suchanfrage vor. Trage links unter »Marken-Begriffe« deinen "
+                   "Markennamen ein (z. B. genau so, wie Nutzer nach dir suchen), um "
+                   "Marken-Suchanfragen auszuschließen.")
+elif brand_queries:
+    st.caption(f"🏷️ **{len(brand_queries)} Marken-Keyword(s)** erkannt (Marke: "
+               f"{detected_str}). Aktiviere links »Marken-Keywords auch aus der Liste "
+               "ausschließen«, um sie auszublenden.")
 
 if exclude_brand and brand_terms:
     drop_mask = candidates["is_brand"] & ~candidates["query"].isin(reinclude)
@@ -310,6 +331,8 @@ with st.expander("✍️ Meta-Titles prüfen & optimieren", expanded=False):
         run_meta_analysis(visible, int(top_n), fallback_raw, api_key, brand_primary)
 
 meta = st.session_state.get("meta")
+if meta and meta.get("summary"):
+    st.caption("📄 " + meta["summary"])
 if meta and not meta.get("had_key"):
     st.caption("Titel-Vorschläge sind leer, weil kein Gemini-Key hinterlegt ist — "
                "Keyword-Check und aktueller Title sind trotzdem gefüllt.")

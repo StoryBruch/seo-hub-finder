@@ -366,6 +366,33 @@ class FetchMetaTitleTests(unittest.TestCase):
         self.assertIsNone(title)
         self.assertEqual(status, "http_404")
 
+    def test_placeholder_tld_not_fetched(self):
+        # *.example (RFC 2606) can never resolve — must short-circuit, no request.
+        with patch("striking_distance_finder.urllib.request.urlopen") as m:
+            title, status = sdf.fetch_meta_title("https://kaffee-guru.example/x")
+        self.assertIsNone(title)
+        self.assertEqual(status, "placeholder")
+        m.assert_not_called()
+
+    def test_titles_return_title_and_status(self):
+        with patch("striking_distance_finder.fetch_meta_title",
+                   return_value=("T", "ok")):
+            result = sdf.fetch_meta_titles(["https://a.com", "https://a.com",
+                                            "https://b.com"])
+        self.assertEqual(result["https://a.com"], ("T", "ok"))
+        self.assertEqual(set(result), {"https://a.com", "https://b.com"})  # de-duped
+
+
+class TitleStatusLabelTests(unittest.TestCase):
+    def test_ok_is_empty(self):
+        self.assertEqual(sdf.title_status_label("ok"), "")
+        self.assertEqual(sdf.title_status_label(None), "")
+
+    def test_placeholder_and_block_are_explained(self):
+        self.assertIn("Platzhalter", sdf.title_status_label("placeholder"))
+        self.assertIn("403", sdf.title_status_label("http_403"))
+        self.assertIn("erreichbar", sdf.title_status_label("error"))
+
 
 class GeminiMetaTitleTests(unittest.TestCase):
     def test_no_key(self):
